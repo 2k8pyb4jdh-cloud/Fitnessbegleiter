@@ -34,7 +34,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt.</div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.2</span></div>
 <div class="stats"><div class="stat"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="formCard">
 <h2 id="formTitle">Gerät hinzufügen</h2>
@@ -71,7 +71,7 @@ $("deviceList").innerHTML=state.devices.length?state.devices.map(d=>{let last=d.
 document.querySelectorAll("[data-log]").forEach(x=>x.onclick=()=>log(x.dataset.log));document.querySelectorAll("[data-edit]").forEach(x=>x.onclick=()=>edit(x.dataset.edit));document.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>del(x.dataset.del));document.querySelectorAll("[data-photo]").forEach(x=>x.onchange=e=>photo(e,x.dataset.photo))}
 $("saveBtn").onclick=saveDevice;$("cancelBtn").onclick=reset;$("addNav").onclick=()=>{$("formCard").scrollIntoView({behavior:"smooth"});$("deviceName").focus()};$("topNav").onclick=()=>scrollTo({top:0,behavior:"smooth"});
 $("exportBtn").onclick=()=>{let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="fitnessbegleiter-backup.json";a.click()};
-$("importFile").onchange=e=>{let f=e.target.files?.[0];if(!f)return,r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(Array.isArray(x.devices)){state=x;persist()}}catch(e){alert("Backup ungültig.")}};r.readAsText(f)};
+$("importFile").onchange=e=>{let f=e.target.files?.[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(Array.isArray(x.devices)){state=x;persist()}}catch(e){alert("Backup ungültig.")}};r.readAsText(f)};
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));load()})();
 </script>
 </body></html>
