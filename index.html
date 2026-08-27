@@ -25,7 +25,8 @@ textarea{min-height:65px}button,.filebtn{display:inline-block;border:0;border-ra
 .placeholder{width:80px;height:80px;border:1px dashed #cbd5e1;border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;color:#94a3b8;font-size:12px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.history{font-size:13px;color:#4b5563;line-height:1.6;border-top:1px solid #eee;margin-top:12px;padding-top:10px}
 .notice{font-size:13px;background:#eef2ff;padding:12px;border-radius:12px;margin-bottom:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.stat{background:white;border-radius:14px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}
+.stat{background:white;border-radius:14px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.stat.clickable{cursor:pointer;user-select:none}.stat.clickable:active{transform:scale(.98)}.overviewItem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #eee;cursor:pointer}.overviewItem:last-child{border-bottom:0}.overviewItem:active{opacity:.65}.overviewMain{min-width:0}.overviewName{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.overviewMeta{font-size:13px;color:#6b7280;margin-top:3px}.overviewWeight{font-size:19px;font-weight:900;white-space:nowrap}.backBtn{margin-bottom:10px}.stat.clickable{cursor:pointer;transition:transform .12s ease}.stat.clickable:active{transform:scale(.97)}
+.overview{position:fixed;inset:0;background:#f2f4f7;z-index:20;display:none;overflow:auto;padding:calc(18px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom))}.overview.show{display:block}.overviewInner{max-width:720px;margin:auto}.overviewHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.overviewHead h2{font-size:26px;margin:0}.overviewList{display:grid;gap:10px}.overviewItem{background:white;border-radius:16px;padding:14px;box-shadow:0 5px 18px #00000010;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}.overviewItem:active{transform:scale(.99)}.overviewItemName{font-weight:900;font-size:18px}.overviewItemMeta{font-size:13px;color:#6b7280;margin-top:3px}.overviewArrow{font-size:24px;color:#6b7280}.overviewEmpty{background:white;border-radius:16px;padding:24px;text-align:center;color:#6b7280}
 nav{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(12px);border-top:1px solid #e5e7eb;padding:8px 14px calc(8px + env(safe-area-inset-bottom));z-index:5}
 nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #formCard{scroll-margin-top:12px}@media(max-width:520px){.grid{grid-template-columns:1fr}}
@@ -34,8 +35,8 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.2</span></div>
-<div class="stats"><div class="stat"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.3</span></div>
+<div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="formCard">
 <h2 id="formTitle">Gerät hinzufügen</h2>
 <div class="notice">Gerät zunächst notfalls als „Gerät 1“ anlegen. Nach deinem Foto können wir die exakte Übung festlegen.</div>
@@ -54,6 +55,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <div id="deviceList"></div>
 <div class="card"><h2>Datensicherung</h2><div class="small">Die App speichert lokal auf deinem iPhone. Ein Backup schützt zusätzlich vor Datenverlust.</div><div class="actions"><button class="secondary" id="exportBtn">Backup exportieren</button><label class="filebtn secondary">Backup laden<input id="importFile" type="file" accept=".json" hidden></label></div></div>
 </main>
+<div class="overview" id="deviceOverview"><div class="overviewInner"><div class="overviewHead"><div><h2>Meine Geräte</h2><div class="small">Gerät auswählen, um direkt dorthin zu springen.</div></div><button class="secondary" id="closeOverview" type="button">Schließen</button></div><div class="overviewList" id="overviewList"></div></div></div>
 <nav><div><button id="addNav">+ Gerät</button><button class="secondary" id="topNav">Übersicht</button></div></nav>
 <script>
 (()=>{"use strict";const KEY="fitnessbegleiter_v3";let state={devices:[]};const $=x=>document.getElementById(x),n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v),fmt=x=>Number(x).toFixed(1).replace(".0","");
@@ -66,10 +68,46 @@ function edit(id){let d=state.devices.find(x=>x.id===id);if(!d)return;$("editId"
 function del(id){if(confirm("Gerät wirklich löschen?")){state.devices=state.devices.filter(x=>x.id!==id);persist()}}
 function log(id){let d=state.devices.find(x=>x.id===id),w=n($("w_"+id).value,d.weight),s=n($("s_"+id).value,d.sets),r=n($("r_"+id).value,d.reps),old=d.weight;d.weight=w;d.logs.unshift({date:new Date().toISOString(),weight:w,sets:s,reps:r,success:s>=d.sets&&r>=d.reps,up:w>old});persist()}
 function photo(e,id){let f=e.target.files?.[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{let d=state.devices.find(x=>x.id===id);d.photo=rd.result;persist()};rd.readAsDataURL(f)}
+function renderOverview(){let list=$("overviewList");if(!list)return;if(!state.devices.length){list.innerHTML=`<div class="overviewEmpty">Noch keine Geräte angelegt.</div>`;return}list.innerHTML=state.devices.map(d=>`<div class="overviewItem" data-open-device="${d.id}"><div><div class="overviewItemName">${esc(d.name)}</div><div class="overviewItemMeta">${esc(d.muscle)} · ${fmt(d.weight)} kg · Ziel ${d.sets} × ${d.reps}</div></div><div class="overviewArrow">›</div></div>`).join("");document.querySelectorAll("[data-open-device]").forEach(x=>x.onclick=()=>{let id=x.dataset.openDevice;$("deviceOverview").classList.remove("show");setTimeout(()=>document.getElementById("device_"+id)?.scrollIntoView({behavior:"smooth",block:"start"}),80)})}
+
+function openDevicesOverview(){
+  const panel=$("devicesOverview"), list=$("devicesOverviewList");
+  if(!state.devices.length){
+    list.innerHTML='<div class="small">Noch keine Geräte angelegt.</div>';
+  }else{
+    list.innerHTML=state.devices.map(d=>`
+      <div class="overviewItem" data-open-device="${d.id}">
+        <div class="overviewMain">
+          <div class="overviewName">${esc(d.name)}</div>
+          <div class="overviewMeta">${esc(d.muscle)} · ${d.sets} × ${d.reps}</div>
+        </div>
+        <div class="overviewWeight">${fmt(d.weight)} kg ›</div>
+      </div>`).join("");
+    list.querySelectorAll("[data-open-device]").forEach(el=>{
+      el.onclick=()=>openDevice(el.dataset.openDevice);
+    });
+  }
+  panel.style.display="block";
+  $("formCard").style.display="none";
+  $("deviceList").style.display="none";
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function closeDevicesOverview(){
+  $("devicesOverview").style.display="none";
+  $("formCard").style.display="block";
+  $("deviceList").style.display="block";
+}
+function openDevice(id){
+  closeDevicesOverview();
+  setTimeout(()=>{
+    const card=document.getElementById("device_"+id);
+    if(card) card.scrollIntoView({behavior:"smooth",block:"start"});
+  },50);
+}
 function render(){let logs=state.devices.reduce((a,d)=>a+d.logs.length,0),ups=state.devices.reduce((a,d)=>a+d.logs.filter(x=>x.up).length,0);$("stDevices").textContent=state.devices.length;$("stLogs").textContent=logs;$("stUps").textContent=ups;
-$("deviceList").innerHTML=state.devices.length?state.devices.map(d=>{let last=d.logs[0],ok=last?.success,rec=!last?`Startgewicht: ${fmt(d.weight)} kg`:ok?`Nächstes Ziel: ${fmt(Number(d.weight)+Number(d.step))} kg`:`Gewicht halten: ${fmt(d.weight)} kg`,hist=d.logs.slice(0,6).map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · mind. ${x.reps} Wdh.`).join("<br>")||"Noch kein Training gespeichert.",pic=d.photo?`<img class="photo" src="${d.photo}">`:`<div class="placeholder">Foto<br>folgt</div>`;return `<div class="card"><div class="deviceHead"><div><div class="title">${esc(d.name)}</div><div class="meta">${esc(d.muscle)} · ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div></div>${pic}</div><div class="weight">${fmt(d.weight)} kg</div><div class="small">aktuelles Arbeitsgewicht</div><div class="recommend ${last&&!ok?"hold":""}">${rec}</div><div class="grid"><div><label>Gewicht</label><input id="w_${d.id}" type="number" step=".5" value="${d.weight}"></div><div><label>Sätze</label><input id="s_${d.id}" type="number" value="${d.sets}"></div><div><label>Min. Wdh.</label><input id="r_${d.id}" type="number" value="${d.reps}"></div></div><button class="full" data-log="${d.id}">Training speichern</button><div class="actions"><button class="secondary" data-edit="${d.id}">Bearbeiten</button><label class="filebtn secondary">Foto<input type="file" accept="image/*" capture="environment" data-photo="${d.id}" hidden></label><button class="danger" data-del="${d.id}">Löschen</button></div>${d.notes?`<div class="history"><b>Einstellung:</b> ${esc(d.notes)}</div>`:""}<div class="history"><b>Letzte Trainings:</b><br>${hist}</div></div>`}).join(""):`<div class="card" style="text-align:center;color:#6b7280">Noch kein Gerät angelegt.</div>`;
-document.querySelectorAll("[data-log]").forEach(x=>x.onclick=()=>log(x.dataset.log));document.querySelectorAll("[data-edit]").forEach(x=>x.onclick=()=>edit(x.dataset.edit));document.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>del(x.dataset.del));document.querySelectorAll("[data-photo]").forEach(x=>x.onchange=e=>photo(e,x.dataset.photo))}
-$("saveBtn").onclick=saveDevice;$("cancelBtn").onclick=reset;$("addNav").onclick=()=>{$("formCard").scrollIntoView({behavior:"smooth"});$("deviceName").focus()};$("topNav").onclick=()=>scrollTo({top:0,behavior:"smooth"});
+$("deviceList").innerHTML=state.devices.length?state.devices.map(d=>{let last=d.logs[0],ok=last?.success,rec=!last?`Startgewicht: ${fmt(d.weight)} kg`:ok?`Nächstes Ziel: ${fmt(Number(d.weight)+Number(d.step))} kg`:`Gewicht halten: ${fmt(d.weight)} kg`,hist=d.logs.slice(0,6).map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · mind. ${x.reps} Wdh.`).join("<br>")||"Noch kein Training gespeichert.",pic=d.photo?`<img class="photo" src="${d.photo}">`:`<div class="placeholder">Foto<br>folgt</div>`;return `<div class="card" id="device_${d.id}"><div class="deviceHead"><div><div class="title">${esc(d.name)}</div><div class="meta">${esc(d.muscle)} · ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div></div>${pic}</div><div class="weight">${fmt(d.weight)} kg</div><div class="small">aktuelles Arbeitsgewicht</div><div class="recommend ${last&&!ok?"hold":""}">${rec}</div><div class="grid"><div><label>Gewicht</label><input id="w_${d.id}" type="number" step=".5" value="${d.weight}"></div><div><label>Sätze</label><input id="s_${d.id}" type="number" value="${d.sets}"></div><div><label>Min. Wdh.</label><input id="r_${d.id}" type="number" value="${d.reps}"></div></div><button class="full" data-log="${d.id}">Training speichern</button><div class="actions"><button class="secondary" data-edit="${d.id}">Bearbeiten</button><label class="filebtn secondary">Foto<input type="file" accept="image/*" capture="environment" data-photo="${d.id}" hidden></label><button class="danger" data-del="${d.id}">Löschen</button></div>${d.notes?`<div class="history"><b>Einstellung:</b> ${esc(d.notes)}</div>`:""}<div class="history"><b>Letzte Trainings:</b><br>${hist}</div></div>`}).join(""):`<div class="card" style="text-align:center;color:#6b7280">Noch kein Gerät angelegt.</div>`;
+document.querySelectorAll("[data-log]").forEach(x=>x.onclick=()=>log(x.dataset.log));document.querySelectorAll("[data-edit]").forEach(x=>x.onclick=()=>edit(x.dataset.edit));document.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>del(x.dataset.del));document.querySelectorAll("[data-photo]").forEach(x=>x.onchange=e=>photo(e,x.dataset.photo));renderOverview()}
+$("devicesStat").onclick=()=>{$("deviceOverview").classList.add("show");renderOverview()};$("devicesStat").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){$("deviceOverview").classList.add("show");renderOverview()}};$("closeOverview").onclick=()=>$("deviceOverview").classList.remove("show");$("saveBtn").onclick=saveDevice;$("cancelBtn").onclick=reset;$("devicesStat").onclick=openDevicesOverview;$("devicesStat").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openDevicesOverview()}};$("closeOverview").onclick=closeDevicesOverview;$("addNav").onclick=()=>{closeDevicesOverview();$("formCard").scrollIntoView({behavior:"smooth"});$("deviceName").focus()};$("topNav").onclick=()=>{closeDevicesOverview();scrollTo({top:0,behavior:"smooth"})};
 $("exportBtn").onclick=()=>{let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="fitnessbegleiter-backup.json";a.click()};
 $("importFile").onchange=e=>{let f=e.target.files?.[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(Array.isArray(x.devices)){state=x;persist()}}catch(e){alert("Backup ungültig.")}};r.readAsText(f)};
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));load()})();
