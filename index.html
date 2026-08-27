@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fitness">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Fitnessbegleiter</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f4f7;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:720px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom))}
+h1{margin:0;font-size:29px}.sub{color:#6b7280;margin:5px 0 18px}.card{background:#fff;border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 5px 18px #00000012}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:12px;font-weight:700;color:#6b7280;margin-bottom:5px}
+input,select,textarea{width:100%;font:inherit;padding:12px;border:1px solid #d1d5db;border-radius:11px;background:#fff}
+textarea{min-height:65px}button,.filebtn{display:inline-block;border:0;border-radius:12px;padding:12px 14px;font-weight:800;font-size:14px;background:#111827;color:#fff;cursor:pointer}
+.secondary{background:#e5e7eb;color:#111827}.danger{background:#fee2e2;color:#991b1b}.full{width:100%;margin-top:12px}
+.deviceHead{display:flex;justify-content:space-between;gap:12px}.title{font-size:20px;font-weight:900}.meta,.small{font-size:13px;color:#6b7280}
+.weight{font-size:32px;font-weight:900;margin:12px 0 2px}.recommend{padding:10px 12px;border-radius:12px;background:#dcfce7;color:#166534;font-weight:800;margin:10px 0}
+.hold{background:#fef3c7;color:#92400e}.photo{width:80px;height:80px;border-radius:14px;object-fit:cover;border:1px solid #e5e7eb}
+.placeholder{width:80px;height:80px;border:1px dashed #cbd5e1;border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;color:#94a3b8;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.history{font-size:13px;color:#4b5563;line-height:1.6;border-top:1px solid #eee;margin-top:12px;padding-top:10px}
+.notice{font-size:13px;background:#eef2ff;padding:12px;border-radius:12px;margin-bottom:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:white;border-radius:14px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}
+nav{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(12px);border-top:1px solid #e5e7eb;padding:8px 14px calc(8px + env(safe-area-inset-bottom));z-index:5}
+nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
+#formCard{scroll-margin-top:12px}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>Fitnessbegleiter 💪</h1>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt.</div>
+<div class="stats"><div class="stat"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
+<div class="card" id="formCard">
+<h2 id="formTitle">Gerät hinzufügen</h2>
+<div class="notice">Gerät zunächst notfalls als „Gerät 1“ anlegen. Nach deinem Foto können wir die exakte Übung festlegen.</div>
+<input type="hidden" id="editId">
+<div class="grid">
+<div><label>Gerätename</label><input id="deviceName" placeholder="z. B. Gerät 1"></div>
+<div><label>Muskelgruppe</label><select id="muscle"><option>Unbekannt</option><option>Beine</option><option>Brust</option><option>Rücken</option><option>Schultern</option><option>Arme</option><option>Bauch/Rumpf</option><option>Ganzkörper</option></select></div>
+<div><label>Aktuelles Gewicht (kg)</label><input id="weight" type="number" inputmode="decimal" step=".5" value="20"></div>
+<div><label>Steigerungsschritt (kg)</label><input id="step" type="number" inputmode="decimal" step=".5" value="2.5"></div>
+<div><label>Zielsätze</label><input id="sets" type="number" inputmode="numeric" value="3"></div>
+<div><label>Ziel-Wiederholungen</label><input id="reps" type="number" inputmode="numeric" value="12"></div>
+</div>
+<div style="margin-top:10px"><label>Geräteeinstellung / Notiz</label><textarea id="notes" placeholder="Sitzposition, Lehne, Griff usw."></textarea></div>
+<button class="full" id="saveBtn">Gerät speichern</button><button class="full secondary" id="cancelBtn" style="display:none">Abbrechen</button>
+</div>
+<div id="deviceList"></div>
+<div class="card"><h2>Datensicherung</h2><div class="small">Die App speichert lokal auf deinem iPhone. Ein Backup schützt zusätzlich vor Datenverlust.</div><div class="actions"><button class="secondary" id="exportBtn">Backup exportieren</button><label class="filebtn secondary">Backup laden<input id="importFile" type="file" accept=".json" hidden></label></div></div>
+</main>
+<nav><div><button id="addNav">+ Gerät</button><button class="secondary" id="topNav">Übersicht</button></div></nav>
+<script>
+(()=>{"use strict";const KEY="fitnessbegleiter_v3";let state={devices:[]};const $=x=>document.getElementById(x),n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v),fmt=x=>Number(x).toFixed(1).replace(".0","");
+const esc=s=>{let d=document.createElement("div");d.textContent=s||"";return d.innerHTML};const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+function load(){try{let x=localStorage.getItem(KEY);if(x)state=JSON.parse(x)}catch(e){}render()}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));render();return true}catch(e){alert("Speichern nicht möglich. Bitte die App über Safari zum Home-Bildschirm hinzufügen.");return false}}
+function reset(){$("editId").value="";$("deviceName").value="";$("muscle").value="Unbekannt";$("weight").value=20;$("step").value=2.5;$("sets").value=3;$("reps").value=12;$("notes").value="";$("formTitle").textContent="Gerät hinzufügen";$("saveBtn").textContent="Gerät speichern";$("cancelBtn").style.display="none"}
+function saveDevice(){let id=$("editId").value,o={name:$("deviceName").value.trim()||"Gerät "+(state.devices.length+1),muscle:$("muscle").value,weight:n($("weight").value,0),step:n($("step").value,2.5),sets:n($("sets").value,3),reps:n($("reps").value,12),notes:$("notes").value.trim()};if(id){let d=state.devices.find(x=>x.id===id);Object.assign(d,o)}else{Object.assign(o,{id:uid(),logs:[],photo:""});state.devices.push(o)}if(persist())reset()}
+function edit(id){let d=state.devices.find(x=>x.id===id);if(!d)return;$("editId").value=id;$("deviceName").value=d.name;$("muscle").value=d.muscle;$("weight").value=d.weight;$("step").value=d.step;$("sets").value=d.sets;$("reps").value=d.reps;$("notes").value=d.notes||"";$("formTitle").textContent="Gerät bearbeiten";$("saveBtn").textContent="Änderungen speichern";$("cancelBtn").style.display="block";$("formCard").scrollIntoView({behavior:"smooth"})}
+function del(id){if(confirm("Gerät wirklich löschen?")){state.devices=state.devices.filter(x=>x.id!==id);persist()}}
+function log(id){let d=state.devices.find(x=>x.id===id),w=n($("w_"+id).value,d.weight),s=n($("s_"+id).value,d.sets),r=n($("r_"+id).value,d.reps),old=d.weight;d.weight=w;d.logs.unshift({date:new Date().toISOString(),weight:w,sets:s,reps:r,success:s>=d.sets&&r>=d.reps,up:w>old});persist()}
+function photo(e,id){let f=e.target.files?.[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{let d=state.devices.find(x=>x.id===id);d.photo=rd.result;persist()};rd.readAsDataURL(f)}
+function render(){let logs=state.devices.reduce((a,d)=>a+d.logs.length,0),ups=state.devices.reduce((a,d)=>a+d.logs.filter(x=>x.up).length,0);$("stDevices").textContent=state.devices.length;$("stLogs").textContent=logs;$("stUps").textContent=ups;
+$("deviceList").innerHTML=state.devices.length?state.devices.map(d=>{let last=d.logs[0],ok=last?.success,rec=!last?`Startgewicht: ${fmt(d.weight)} kg`:ok?`Nächstes Ziel: ${fmt(Number(d.weight)+Number(d.step))} kg`:`Gewicht halten: ${fmt(d.weight)} kg`,hist=d.logs.slice(0,6).map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · mind. ${x.reps} Wdh.`).join("<br>")||"Noch kein Training gespeichert.",pic=d.photo?`<img class="photo" src="${d.photo}">`:`<div class="placeholder">Foto<br>folgt</div>`;return `<div class="card"><div class="deviceHead"><div><div class="title">${esc(d.name)}</div><div class="meta">${esc(d.muscle)} · ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div></div>${pic}</div><div class="weight">${fmt(d.weight)} kg</div><div class="small">aktuelles Arbeitsgewicht</div><div class="recommend ${last&&!ok?"hold":""}">${rec}</div><div class="grid"><div><label>Gewicht</label><input id="w_${d.id}" type="number" step=".5" value="${d.weight}"></div><div><label>Sätze</label><input id="s_${d.id}" type="number" value="${d.sets}"></div><div><label>Min. Wdh.</label><input id="r_${d.id}" type="number" value="${d.reps}"></div></div><button class="full" data-log="${d.id}">Training speichern</button><div class="actions"><button class="secondary" data-edit="${d.id}">Bearbeiten</button><label class="filebtn secondary">Foto<input type="file" accept="image/*" capture="environment" data-photo="${d.id}" hidden></label><button class="danger" data-del="${d.id}">Löschen</button></div>${d.notes?`<div class="history"><b>Einstellung:</b> ${esc(d.notes)}</div>`:""}<div class="history"><b>Letzte Trainings:</b><br>${hist}</div></div>`}).join(""):`<div class="card" style="text-align:center;color:#6b7280">Noch kein Gerät angelegt.</div>`;
+document.querySelectorAll("[data-log]").forEach(x=>x.onclick=()=>log(x.dataset.log));document.querySelectorAll("[data-edit]").forEach(x=>x.onclick=()=>edit(x.dataset.edit));document.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>del(x.dataset.del));document.querySelectorAll("[data-photo]").forEach(x=>x.onchange=e=>photo(e,x.dataset.photo))}
+$("saveBtn").onclick=saveDevice;$("cancelBtn").onclick=reset;$("addNav").onclick=()=>{$("formCard").scrollIntoView({behavior:"smooth"});$("deviceName").focus()};$("topNav").onclick=()=>scrollTo({top:0,behavior:"smooth"});
+$("exportBtn").onclick=()=>{let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="fitnessbegleiter-backup.json";a.click()};
+$("importFile").onchange=e=>{let f=e.target.files?.[0];if(!f)return,r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(Array.isArray(x.devices)){state=x;persist()}}catch(e){alert("Backup ungültig.")}};r.readAsText(f)};
+if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));load()})();
+</script>
+</body></html>
