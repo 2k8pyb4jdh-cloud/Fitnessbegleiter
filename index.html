@@ -30,12 +30,23 @@ textarea{min-height:65px}button,.filebtn{display:inline-block;border:0;border-ra
 nav{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(12px);border-top:1px solid #e5e7eb;padding:8px 14px calc(8px + env(safe-area-inset-bottom));z-index:5}
 nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #formCard{scroll-margin-top:12px}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+
+.prBox{display:inline-block;margin-top:8px;padding:8px 10px;border-radius:12px;background:#f3f4f6;font-weight:800}
+.chartWrap{margin-top:14px;padding:12px;background:#f9fafb;border-radius:14px}
+.chartWrap canvas{width:100%;height:180px;display:block}
+.sessionCard{background:#111827;color:#fff;border-radius:20px;padding:16px;margin:12px 0}
+.sessionCard .small{color:#d1d5db}
+.sessionTop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sessionProgress{font-size:13px;color:#d1d5db}
+.sessionNav{display:flex;gap:8px;margin-top:12px}
+.sessionNav button{flex:1}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.7</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.0</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -47,6 +58,11 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 <div id="overviewSummary"></div>
 </div>
+
+<div id="homeActions" class="card">
+  <button class="full" id="startWorkoutBtn">Training starten 💪</button>
+</div>
+<div id="workoutSession" style="display:none"></div>
 <div class="card" id="formCard" style="display:none">
 <h2 id="formTitle">Gerät hinzufügen</h2>
 <div class="notice">Gerät zunächst notfalls als „Gerät 1“ anlegen. Nach deinem Foto können wir die exakte Übung festlegen.</div>
@@ -68,6 +84,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <nav><div><button id="addNav">+ Gerät</button><button class="secondary" id="topNav">Übersicht</button></div></nav>
 <script>
 
+
 (()=>{"use strict";
 
 const KEY="fitnessbegleiter_v3";
@@ -76,6 +93,7 @@ const STORE="photos";
 let state={devices:[]};
 let currentView="home";
 let selectedDeviceId=null;
+let workout={active:false,index:0,deviceIds:[]};
 
 const $=id=>document.getElementById(id);
 const n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v);
@@ -172,23 +190,61 @@ function renderStats(){
   $("stUps").textContent=ups;
 }
 
+function bestWeight(d){
+  const vals=[Number(d.weight)||0,...(d.logs||[]).map(x=>Number(x.weight)||0)];
+  return Math.max(...vals);
+}
+function drawChart(canvas,logs){
+  if(!canvas||!logs.length)return;
+  const ctx=canvas.getContext("2d");
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=rect.width*dpr;
+  canvas.height=180*dpr;
+  ctx.scale(dpr,dpr);
+  const w=rect.width,h=180,pad=24;
+  ctx.clearRect(0,0,w,h);
+
+  const data=[...logs].reverse().slice(-12);
+  const vals=data.map(x=>Number(x.weight)||0);
+  const min=Math.min(...vals),max=Math.max(...vals);
+  const range=Math.max(1,max-min);
+
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  vals.forEach((v,i)=>{
+    const x=pad+(i/(Math.max(1,vals.length-1)))*(w-pad*2);
+    const y=h-pad-((v-min)/range)*(h-pad*2);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  ctx.font="12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  ctx.fillText(fmt(max)+" kg",4,14);
+  ctx.fillText(fmt(min)+" kg",4,h-6);
+}
 function hideAllViews(){
   $("mainOverview").style.display="none";
   $("formCard").style.display="none";
   $("deviceList").style.display="none";
   $("deviceDetailHeader").style.display="none";
+  $("workoutSession").style.display="none";
   if($("devicesOverview"))$("devicesOverview").style.display="none";
 }
 function showHome(){
   currentView="home";
   selectedDeviceId=null;
+  workout.active=false;
   hideAllViews();
+  $("homeActions").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function showAddDevice(){
   currentView="add";
   selectedDeviceId=null;
+  workout.active=false;
   hideAllViews();
+  $("homeActions").style.display="none";
   resetForm();
   $("formCard").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
@@ -199,7 +255,9 @@ function showEditDevice(id){
   if(!d)return;
   currentView="edit";
   selectedDeviceId=id;
+  workout.active=false;
   hideAllViews();
+  $("homeActions").style.display="none";
   $("editId").value=id;
   $("deviceName").value=d.name;
   $("muscle").value=d.muscle;
@@ -217,7 +275,9 @@ function showEditDevice(id){
 function openOverview(){
   currentView="overview";
   selectedDeviceId=null;
+  workout.active=false;
   hideAllViews();
+  $("homeActions").style.display="none";
 
   const logs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
   const ups=state.devices.reduce((a,d)=>a+(d.logs||[]).filter(x=>x.up).length,0);
@@ -254,7 +314,9 @@ async function showDevice(id){
 
   currentView="detail";
   selectedDeviceId=id;
+  workout.active=false;
   hideAllViews();
+  $("homeActions").style.display="none";
   $("deviceDetailHeader").style.display="block";
   $("deviceList").style.display="block";
 
@@ -275,6 +337,7 @@ async function showDevice(id){
       <div>
         <div class="title">${esc(d.name)}</div>
         <div class="meta">${esc(d.muscle)} · Ziel ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div>
+        <div class="prBox">🏆 Bestleistung: ${fmt(bestWeight(d))} kg</div>
       </div>
       <div data-photo-slot="${d.id}"><div class="placeholder">${d.hasPhoto?"Foto<br>wird geladen":"Foto<br>folgt"}</div></div>
     </div>
@@ -300,6 +363,11 @@ async function showDevice(id){
     </div>
     <button class="full" id="saveTraining">Training speichern</button>
 
+    <div class="chartWrap">
+      <b>Fortschritt</b>
+      ${d.logs.length?'<canvas id="progressChart"></canvas>':'<div class="small" style="margin-top:8px">Noch keine Trainingsdaten für ein Diagramm.</div>'}
+    </div>
+
     <div class="actions">
       <button class="secondary" id="editDevice">Gerät bearbeiten</button>
       <label class="filebtn secondary">Foto auswählen<input id="photoInput" type="file" accept="image/*" hidden></label>
@@ -314,6 +382,8 @@ async function showDevice(id){
   $("editDevice").onclick=()=>showEditDevice(d.id);
   $("deleteDevice").onclick=()=>deleteDevice(d.id);
   $("photoInput").onchange=e=>savePhoto(e,d.id);
+
+  if(d.logs.length)requestAnimationFrame(()=>drawChart($("progressChart"),d.logs));
 
   const data=await mediaGet(d.id);
   if(data){
@@ -406,6 +476,90 @@ function savePhoto(e,id){
   rd.readAsDataURL(f);
 }
 
+function startWorkout(){
+  if(!state.devices.length){
+    alert("Lege zuerst mindestens ein Gerät an.");
+    return;
+  }
+  workout={active:true,index:0,deviceIds:state.devices.map(d=>d.id)};
+  showWorkoutStep();
+}
+function showWorkoutStep(){
+  if(!workout.active)return;
+  const id=workout.deviceIds[workout.index];
+  const d=state.devices.find(x=>x.id===id);
+  if(!d){
+    workout.index++;
+    if(workout.index>=workout.deviceIds.length){finishWorkout();return}
+    showWorkoutStep();
+    return;
+  }
+
+  currentView="workout";
+  hideAllViews();
+  $("homeActions").style.display="none";
+  $("workoutSession").style.display="block";
+
+  const last=d.logs[0];
+  $("workoutSession").innerHTML=`<div class="sessionCard">
+    <div class="sessionTop">
+      <div>
+        <div class="sessionProgress">Gerät ${workout.index+1} von ${workout.deviceIds.length}</div>
+        <div class="title" style="color:#fff">${esc(d.name)}</div>
+        <div class="small">${esc(d.muscle)}</div>
+      </div>
+      <div style="font-size:24px;font-weight:900">${fmt(d.weight)} kg</div>
+    </div>
+
+    <div class="small" style="margin-top:10px">
+      ${last?`Letztes Training: ${fmt(last.weight)} kg · ${last.sets} Sätze · ${last.reps} Wdh.`:"Noch kein Training gespeichert."}
+    </div>
+
+    <div class="grid" style="margin-top:14px">
+      <div><label style="color:#d1d5db">Gewicht</label><input id="woWeight" type="number" step=".5" value="${d.weight}"></div>
+      <div><label style="color:#d1d5db">Sätze</label><input id="woSets" type="number" value="${d.sets}"></div>
+      <div><label style="color:#d1d5db">Wiederholungen</label><input id="woReps" type="number" value="${d.reps}"></div>
+    </div>
+
+    <button class="full" id="woSave">Speichern & weiter</button>
+    <div class="sessionNav">
+      <button class="secondary" id="woSkip">Überspringen</button>
+      <button class="secondary" id="woStop">Training beenden</button>
+    </div>
+  </div>`;
+
+  $("woSave").onclick=()=>{
+    const w=n($("woWeight").value,d.weight);
+    const s=n($("woSets").value,d.sets);
+    const r=n($("woReps").value,d.reps);
+    const old=d.weight;
+    d.weight=w;
+    d.logs.unshift({
+      date:new Date().toISOString(),
+      weight:w,
+      sets:s,
+      reps:r,
+      success:s>=d.sets&&r>=d.reps,
+      up:w>old
+    });
+    persist();
+    workout.index++;
+    if(workout.index>=workout.deviceIds.length)finishWorkout();
+    else showWorkoutStep();
+  };
+  $("woSkip").onclick=()=>{
+    workout.index++;
+    if(workout.index>=workout.deviceIds.length)finishWorkout();
+    else showWorkoutStep();
+  };
+  $("woStop").onclick=finishWorkout;
+}
+function finishWorkout(){
+  workout.active=false;
+  alert("Training abgeschlossen 💪");
+  openOverview();
+}
+
 $("saveBtn").onclick=saveDevice;
 $("cancelBtn").onclick=()=>selectedDeviceId?showDevice(selectedDeviceId):showHome();
 $("addNav").onclick=showAddDevice;
@@ -419,6 +573,7 @@ $("devicesStat").onkeydown=e=>{
     openOverview();
   }
 };
+$("startWorkoutBtn").onclick=startWorkout;
 
 $("exportBtn").onclick=()=>{
   const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
@@ -453,6 +608,7 @@ if("serviceWorker"in navigator){
 load();
 
 })();
+
 
 </script>
 </body></html>
