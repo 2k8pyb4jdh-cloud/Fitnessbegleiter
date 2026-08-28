@@ -26,7 +26,7 @@ textarea{min-height:65px}button,.filebtn{display:inline-block;border:0;border-ra
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.history{font-size:13px;color:#4b5563;line-height:1.6;border-top:1px solid #eee;margin-top:12px;padding-top:10px}
 .notice{font-size:13px;background:#eef2ff;padding:12px;border-radius:12px;margin-bottom:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .stat{background:white;border-radius:14px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.stat.clickable{cursor:pointer;user-select:none}.stat.clickable:active{transform:scale(.98)}.overviewItem{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #eee;cursor:pointer}.overviewItem:last-child{border-bottom:0}.overviewItem:active{opacity:.65}.overviewMain{min-width:0}.overviewName{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.overviewMeta{font-size:13px;color:#6b7280;margin-top:3px}.overviewWeight{font-size:19px;font-weight:900;white-space:nowrap}.backBtn{margin-bottom:10px}.overviewStats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 16px}.overviewStat{background:#f3f4f6;border-radius:14px;padding:12px;text-align:center}.overviewStat b{font-size:22px;display:block}.summaryRow{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}.summaryRow:last-child{border-bottom:0}.summaryName{font-weight:900}.summaryMeta{font-size:12px;color:#6b7280;margin-top:3px}.summaryWeight{font-weight:900;white-space:nowrap}.stat.clickable{cursor:pointer;transition:transform .12s ease}.stat.clickable:active{transform:scale(.97)}
-.overview{position:fixed;inset:0;background:#f2f4f7;z-index:20;display:none;overflow:auto;padding:calc(18px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom))}.overview.show{display:block}.overviewInner{max-width:720px;margin:auto}.overviewHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.overviewHead h2{font-size:26px;margin:0}.overviewList{display:grid;gap:10px}.overviewItem{background:white;border-radius:16px;padding:14px;box-shadow:0 5px 18px #00000010;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}.overviewItem:active{transform:scale(.99)}.overviewItemName{font-weight:900;font-size:18px}.overviewItemMeta{font-size:13px;color:#6b7280;margin-top:3px}.overviewArrow{font-size:24px;color:#6b7280}.overviewEmpty{background:white;border-radius:16px;padding:24px;text-align:center;color:#6b7280}
+.overviewEmpty{background:white;border-radius:16px;padding:24px;text-align:center;color:#6b7280}
 nav{position:fixed;bottom:0;left:0;right:0;background:#ffffffee;backdrop-filter:blur(12px);border-top:1px solid #e5e7eb;padding:8px 14px calc(8px + env(safe-area-inset-bottom));z-index:5}
 nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #formCard{scroll-margin-top:12px}@media(max-width:520px){.grid{grid-template-columns:1fr}}
@@ -35,7 +35,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.6</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v3.7</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -47,7 +47,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 <div id="overviewSummary"></div>
 </div>
-<div class="card" id="formCard">
+<div class="card" id="formCard" style="display:none">
 <h2 id="formTitle">Gerät hinzufügen</h2>
 <div class="notice">Gerät zunächst notfalls als „Gerät 1“ anlegen. Nach deinem Foto können wir die exakte Übung festlegen.</div>
 <input type="hidden" id="editId">
@@ -65,53 +65,160 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <div id="deviceDetailHeader" style="display:none"><button class="secondary full" id="backToOverview">← Zur Übersicht</button></div><div id="deviceList"></div>
 <div class="card"><h2>Datensicherung</h2><div class="small">Die App speichert lokal auf deinem iPhone. Ein Backup schützt zusätzlich vor Datenverlust.</div><div class="actions"><button class="secondary" id="exportBtn">Backup exportieren</button><label class="filebtn secondary">Backup laden<input id="importFile" type="file" accept=".json" hidden></label></div></div>
 </main>
-<div class="overview" id="deviceOverview"><div class="overviewInner"><div class="overviewHead"><div><h2>Meine Geräte</h2><div class="small">Gerät auswählen, um direkt dorthin zu springen.</div></div><button class="secondary" id="closeOverview" type="button">Schließen</button></div><div class="overviewList" id="overviewList"></div></div></div>
 <nav><div><button id="addNav">+ Gerät</button><button class="secondary" id="topNav">Übersicht</button></div></nav>
 <script>
-(()=>{"use strict";const KEY="fitnessbegleiter_v3",DB_NAME="fitnessbegleiter_media_v1",STORE="photos";let state={devices:[]},currentView="home",selectedDeviceId=null;const $=x=>document.getElementById(x),n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v),fmt=x=>Number(x).toFixed(1).replace(".0","");
-const esc=s=>{let d=document.createElement("div");d.textContent=s||"";return d.innerHTML};const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 
-function openMediaDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE)};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
-async function mediaPut(id,data){const db=await openMediaDB();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=()=>{db.close();resolve(true)};tx.onerror=()=>{db.close();reject(tx.error)}})}
-async function mediaGet(id){try{const db=await openMediaDB();return await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,"readonly"),r=tx.objectStore(STORE).get(id);r.onsuccess=()=>{db.close();resolve(r.result||"")};r.onerror=()=>{db.close();reject(r.error)}})}catch(e){return ""}}
-async function mediaDelete(id){try{const db=await openMediaDB();await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}catch(e){}}
-async function migrateLegacyPhotos(){let changed=false;for(const d of state.devices){if(typeof d.photo==="string"&&d.photo.startsWith("data:image")){try{await mediaPut(d.id,d.photo);d.hasPhoto=true;d.photo="";changed=true}catch(e){}}else if(d.photo){d.hasPhoto=true;d.photo="";changed=true}}if(changed){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}}
-async function load(){try{let x=localStorage.getItem(KEY);if(x)state=JSON.parse(x)}catch(e){}await migrateLegacyPhotos();render();showHome()}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));render();return true}catch(e){alert("Speichern fehlgeschlagen. Deine bisherigen Daten bleiben erhalten. Fotos werden ab v3.5 separat gespeichert.");return false}}
-function reset(){$("editId").value="";$("deviceName").value="";$("muscle").value="Unbekannt";$("weight").value=20;$("step").value=2.5;$("sets").value=3;$("reps").value=12;$("notes").value="";$("formTitle").textContent="Gerät hinzufügen";$("saveBtn").textContent="Gerät speichern";$("cancelBtn").style.display="none"}
-function saveDevice(){let id=$("editId").value,o={name:$("deviceName").value.trim()||"Gerät "+(state.devices.length+1),muscle:$("muscle").value,weight:n($("weight").value,0),step:n($("step").value,2.5),sets:n($("sets").value,3),reps:n($("reps").value,12),notes:$("notes").value.trim()};if(id){let d=state.devices.find(x=>x.id===id);Object.assign(d,o)}else{Object.assign(o,{id:uid(),logs:[],photo:"",hasPhoto:false});state.devices.push(o)}if(persist()){reset();showHome()}}
-function edit(id){let d=state.devices.find(x=>x.id===id);if(!d)return;$("editId").value=id;$("deviceName").value=d.name;$("muscle").value=d.muscle;$("weight").value=d.weight;$("step").value=d.step;$("sets").value=d.sets;$("reps").value=d.reps;$("notes").value=d.notes||"";$("formTitle").textContent="Gerät bearbeiten";$("saveBtn").textContent="Änderungen speichern";$("cancelBtn").style.display="block";currentView="home";$("mainOverview").style.display="none";$("deviceDetailHeader").style.display="none";$("deviceList").style.display="none";$("formCard").style.display="block";$("formCard").scrollIntoView({behavior:"smooth"})}
-async function del(id){if(confirm("Gerät wirklich löschen?")){state.devices=state.devices.filter(x=>x.id!==id);await mediaDelete(id);persist();openMainOverview()}}
-function log(id){let d=state.devices.find(x=>x.id===id),w=n($("w_"+id).value,d.weight),s=n($("s_"+id).value,d.sets),r=n($("r_"+id).value,d.reps),old=d.weight;d.weight=w;d.logs.unshift({date:new Date().toISOString(),weight:w,sets:s,reps:r,success:s>=d.sets&&r>=d.reps,up:w>old});persist();showDeviceDetail(id)}
-function photo(e,id){let f=e.target.files?.[0];if(!f)return;let rd=new FileReader();rd.onload=async()=>{try{await mediaPut(id,rd.result);let d=state.devices.find(x=>x.id===id);if(d){d.hasPhoto=true;d.photo=""}persist()}catch(err){alert("Foto konnte nicht gespeichert werden. Bitte versuche ein anderes Bild.")}};rd.readAsDataURL(f)}
-function renderOverview(){let list=$("overviewList");if(!list)return;if(!state.devices.length){list.innerHTML=`<div class="overviewEmpty">Noch keine Geräte angelegt.</div>`;return}list.innerHTML=state.devices.map(d=>`<div class="overviewItem" data-open-device="${d.id}"><div><div class="overviewItemName">${esc(d.name)}</div><div class="overviewItemMeta">${esc(d.muscle)} · ${fmt(d.weight)} kg · Ziel ${d.sets} × ${d.reps}</div></div><div class="overviewArrow">›</div></div>`).join("");document.querySelectorAll("[data-open-device]").forEach(x=>x.onclick=()=>{let id=x.dataset.openDevice;$("deviceOverview").classList.remove("show");setTimeout(()=>document.getElementById("device_"+id)?.scrollIntoView({behavior:"smooth",block:"start"}),80)})}
+(()=>{"use strict";
 
+const KEY="fitnessbegleiter_v3";
+const DB_NAME="fitnessbegleiter_media_v1";
+const STORE="photos";
+let state={devices:[]};
+let currentView="home";
+let selectedDeviceId=null;
 
+const $=id=>document.getElementById(id);
+const n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v);
+const fmt=x=>Number(x).toFixed(1).replace(".0","");
+const esc=s=>{const d=document.createElement("div");d.textContent=s||"";return d.innerHTML};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 
+function openMediaDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function mediaPut(id,data){
+  const db=await openMediaDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).put(data,id);
+    tx.oncomplete=()=>{db.close();resolve(true)};
+    tx.onerror=()=>{db.close();reject(tx.error)};
+  });
+}
+async function mediaGet(id){
+  try{
+    const db=await openMediaDB();
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,"readonly");
+      const r=tx.objectStore(STORE).get(id);
+      r.onsuccess=()=>{db.close();resolve(r.result||"")};
+      r.onerror=()=>{db.close();reject(r.error)};
+    });
+  }catch(e){return ""}
+}
+async function mediaDelete(id){
+  try{
+    const db=await openMediaDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,"readwrite");
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete=()=>{db.close();resolve()};
+      tx.onerror=()=>{db.close();reject(tx.error)};
+    });
+  }catch(e){}
+}
+async function migrateLegacyPhotos(){
+  let changed=false;
+  for(const d of state.devices){
+    if(typeof d.photo==="string"&&d.photo.startsWith("data:image")){
+      try{
+        await mediaPut(d.id,d.photo);
+        d.hasPhoto=true;
+        d.photo="";
+        changed=true;
+      }catch(e){}
+    }
+  }
+  if(changed){
+    try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+  }
+}
+async function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw)state=JSON.parse(raw);
+  }catch(e){}
+  for(const d of state.devices){
+    if(!Array.isArray(d.logs))d.logs=[];
+    if(typeof d.hasPhoto!=="boolean")d.hasPhoto=!!d.photo;
+  }
+  await migrateLegacyPhotos();
+  renderStats();
+  showHome();
+}
+function persist(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(state));
+    renderStats();
+    return true;
+  }catch(e){
+    alert("Speichern fehlgeschlagen. Deine bisherigen Daten bleiben erhalten.");
+    return false;
+  }
+}
+function renderStats(){
+  const logs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
+  const ups=state.devices.reduce((a,d)=>a+(d.logs||[]).filter(x=>x.up).length,0);
+  $("stDevices").textContent=state.devices.length;
+  $("stLogs").textContent=logs;
+  $("stUps").textContent=ups;
+}
+
+function hideAllViews(){
+  $("mainOverview").style.display="none";
+  $("formCard").style.display="none";
+  $("deviceList").style.display="none";
+  $("deviceDetailHeader").style.display="none";
+  if($("devicesOverview"))$("devicesOverview").style.display="none";
+}
 function showHome(){
   currentView="home";
   selectedDeviceId=null;
-  $("mainOverview").style.display="none";
-  $("devicesOverview").style.display="none";
-  $("deviceDetailHeader").style.display="none";
+  hideAllViews();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function showAddDevice(){
+  currentView="add";
+  selectedDeviceId=null;
+  hideAllViews();
+  resetForm();
   $("formCard").style.display="block";
-  $("deviceList").style.display="none";
   window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(()=>$("deviceName").focus(),200);
 }
-function showDeviceDetail(id){
-  currentView="detail";
+function showEditDevice(id){
+  const d=state.devices.find(x=>x.id===id);
+  if(!d)return;
+  currentView="edit";
   selectedDeviceId=id;
-  $("mainOverview").style.display="none";
-  $("devicesOverview").style.display="none";
-  $("formCard").style.display="none";
-  $("deviceList").style.display="block";
-  $("deviceDetailHeader").style.display="block";
-  render();
+  hideAllViews();
+  $("editId").value=id;
+  $("deviceName").value=d.name;
+  $("muscle").value=d.muscle;
+  $("weight").value=d.weight;
+  $("step").value=d.step;
+  $("sets").value=d.sets;
+  $("reps").value=d.reps;
+  $("notes").value=d.notes||"";
+  $("formTitle").textContent="Gerät bearbeiten";
+  $("saveBtn").textContent="Änderungen speichern";
+  $("cancelBtn").style.display="block";
+  $("formCard").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function openMainOverview(){
+function openOverview(){
   currentView="overview";
   selectedDeviceId=null;
+  hideAllViews();
+
   const logs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
   const ups=state.devices.reduce((a,d)=>a+(d.logs||[]).filter(x=>x.up).length,0);
   $("ovDevices").textContent=state.devices.length;
@@ -122,9 +229,9 @@ function openMainOverview(){
     ? state.devices.map(d=>{
         const last=(d.logs||[])[0];
         const lastText=last
-          ? `${new Date(last.date).toLocaleDateString("de-DE")} · ${fmt(last.weight)} kg · ${last.sets}×${last.reps}`
+          ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · ${fmt(last.weight)} kg`
           : "Noch kein Training";
-        return `<div class="summaryRow" data-overview-device="${d.id}">
+        return `<div class="summaryRow" data-device="${d.id}">
           <div>
             <div class="summaryName">${esc(d.name)}</div>
             <div class="summaryMeta">${esc(d.muscle)} · ${lastText}</div>
@@ -134,35 +241,218 @@ function openMainOverview(){
       }).join("")
     : '<div class="small">Noch keine Geräte angelegt.</div>';
 
-  $("overviewSummary").querySelectorAll("[data-overview-device]").forEach(el=>{
-    el.onclick=()=>showDeviceDetail(el.dataset.overviewDevice);
+  $("overviewSummary").querySelectorAll("[data-device]").forEach(el=>{
+    el.onclick=()=>showDevice(el.dataset.device);
   });
 
   $("mainOverview").style.display="block";
-  $("devicesOverview").style.display="none";
-  $("formCard").style.display="none";
-  $("deviceList").style.display="none";
-  $("deviceDetailHeader").style.display="none";
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function closeMainOverview(){showHome()}
-function openDevicesOverview(){openMainOverview()}
-function closeDevicesOverview(){showHome()}
-function openDevice(id){showDeviceDetail(id)}
+async function showDevice(id){
+  const d=state.devices.find(x=>x.id===id);
+  if(!d)return;
 
-async function hydratePhotos(){
-  const slots=[...document.querySelectorAll("[data-photo-slot]")];
-  for(const slot of slots){
-    const id=slot.dataset.photoSlot,data=await mediaGet(id);
-    if(data)slot.innerHTML=`<img class="photo" src="${data}" alt="Gerätefoto">`;
+  currentView="detail";
+  selectedDeviceId=id;
+  hideAllViews();
+  $("deviceDetailHeader").style.display="block";
+  $("deviceList").style.display="block";
+
+  const last=d.logs[0];
+  const ok=last?.success;
+  const rec=!last
+    ? `Startgewicht: ${fmt(d.weight)} kg`
+    : ok
+      ? `Nächstes Ziel: ${fmt(Number(d.weight)+Number(d.step))} kg`
+      : `Gewicht halten: ${fmt(d.weight)} kg`;
+
+  const hist=d.logs.length
+    ? d.logs.map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · ${x.reps} Wdh.`).join("<br>")
+    : "Noch kein Training gespeichert.";
+
+  $("deviceList").innerHTML=`<div class="card" id="device_${d.id}">
+    <div class="deviceHead">
+      <div>
+        <div class="title">${esc(d.name)}</div>
+        <div class="meta">${esc(d.muscle)} · Ziel ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div>
+      </div>
+      <div data-photo-slot="${d.id}"><div class="placeholder">${d.hasPhoto?"Foto<br>wird geladen":"Foto<br>folgt"}</div></div>
+    </div>
+
+    <div class="weight">${fmt(d.weight)} kg</div>
+    <div class="small">aktuelles Arbeitsgewicht</div>
+    <div class="recommend ${last&&!ok?"hold":""}">${rec}</div>
+
+    <h2 style="margin-top:18px">Training eintragen</h2>
+    <div class="grid">
+      <div>
+        <label>Trainiertes Gewicht (kg)</label>
+        <input id="w_${d.id}" type="number" inputmode="decimal" step=".5" value="${d.weight}">
+      </div>
+      <div>
+        <label>Sätze</label>
+        <input id="s_${d.id}" type="number" inputmode="numeric" value="${d.sets}">
+      </div>
+      <div>
+        <label>Wiederholungen</label>
+        <input id="r_${d.id}" type="number" inputmode="numeric" value="${d.reps}">
+      </div>
+    </div>
+    <button class="full" id="saveTraining">Training speichern</button>
+
+    <div class="actions">
+      <button class="secondary" id="editDevice">Gerät bearbeiten</button>
+      <label class="filebtn secondary">Foto auswählen<input id="photoInput" type="file" accept="image/*" hidden></label>
+      <button class="danger" id="deleteDevice">Löschen</button>
+    </div>
+
+    ${d.notes?`<div class="history"><b>Einstellung:</b> ${esc(d.notes)}</div>`:""}
+    <div class="history"><b>Trainingshistorie:</b><br>${hist}</div>
+  </div>`;
+
+  $("saveTraining").onclick=()=>saveTraining(d.id);
+  $("editDevice").onclick=()=>showEditDevice(d.id);
+  $("deleteDevice").onclick=()=>deleteDevice(d.id);
+  $("photoInput").onchange=e=>savePhoto(e,d.id);
+
+  const data=await mediaGet(d.id);
+  if(data){
+    const slot=document.querySelector(`[data-photo-slot="${d.id}"]`);
+    if(slot)slot.innerHTML=`<img class="photo" src="${data}" alt="Gerätefoto">`;
+  }
+
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function resetForm(){
+  $("editId").value="";
+  $("deviceName").value="";
+  $("muscle").value="Unbekannt";
+  $("weight").value=20;
+  $("step").value=2.5;
+  $("sets").value=3;
+  $("reps").value=12;
+  $("notes").value="";
+  $("formTitle").textContent="Gerät hinzufügen";
+  $("saveBtn").textContent="Gerät speichern";
+  $("cancelBtn").style.display="none";
+}
+function saveDevice(){
+  const id=$("editId").value;
+  const values={
+    name:$("deviceName").value.trim()||"Gerät "+(state.devices.length+1),
+    muscle:$("muscle").value,
+    weight:n($("weight").value,0),
+    step:n($("step").value,2.5),
+    sets:n($("sets").value,3),
+    reps:n($("reps").value,12),
+    notes:$("notes").value.trim()
+  };
+
+  if(id){
+    const d=state.devices.find(x=>x.id===id);
+    if(d)Object.assign(d,values);
+  }else{
+    state.devices.push({...values,id:uid(),logs:[],photo:"",hasPhoto:false});
+  }
+
+  if(persist()){
+    resetForm();
+    openOverview();
   }
 }
-function render(){let logs=state.devices.reduce((a,d)=>a+d.logs.length,0),ups=state.devices.reduce((a,d)=>a+d.logs.filter(x=>x.up).length,0);$("stDevices").textContent=state.devices.length;$("stLogs").textContent=logs;$("stUps").textContent=ups;
-$("deviceList").innerHTML=(currentView==="detail"&&selectedDeviceId)?state.devices.filter(d=>d.id===selectedDeviceId).map(d=>{let last=d.logs[0],ok=last?.success,rec=!last?`Startgewicht: ${fmt(d.weight)} kg`:ok?`Nächstes Ziel: ${fmt(Number(d.weight)+Number(d.step))} kg`:`Gewicht halten: ${fmt(d.weight)} kg`,hist=d.logs.slice(0,6).map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · mind. ${x.reps} Wdh.`).join("<br>")||"Noch kein Training gespeichert.",pic=`<div data-photo-slot="${d.id}">${d.hasPhoto?`<div class="placeholder">Foto<br>wird geladen</div>`:`<div class="placeholder">Foto<br>folgt</div>`}</div>`;return `<div class="card" id="device_${d.id}"><div class="deviceHead"><div><div class="title">${esc(d.name)}</div><div class="meta">${esc(d.muscle)} · ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div></div>${pic}</div><div class="weight">${fmt(d.weight)} kg</div><div class="small">aktuelles Arbeitsgewicht</div><div class="recommend ${last&&!ok?"hold":""}">${rec}</div><div class="grid"><div><label>Gewicht</label><input id="w_${d.id}" type="number" step=".5" value="${d.weight}"></div><div><label>Sätze</label><input id="s_${d.id}" type="number" value="${d.sets}"></div><div><label>Min. Wdh.</label><input id="r_${d.id}" type="number" value="${d.reps}"></div></div><button class="full" data-log="${d.id}">Training speichern</button><div class="actions"><button class="secondary" data-edit="${d.id}">Bearbeiten</button><label class="filebtn secondary">Foto<input type="file" accept="image/*" data-photo="${d.id}" hidden></label><button class="danger" data-del="${d.id}">Löschen</button></div>${d.notes?`<div class="history"><b>Einstellung:</b> ${esc(d.notes)}</div>`:""}<div class="history"><b>Letzte Trainings:</b><br>${hist}</div></div>`}).join(""):"";
-document.querySelectorAll("[data-log]").forEach(x=>x.onclick=()=>log(x.dataset.log));document.querySelectorAll("[data-edit]").forEach(x=>x.onclick=()=>edit(x.dataset.edit));document.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>del(x.dataset.del));document.querySelectorAll("[data-photo]").forEach(x=>x.onchange=e=>photo(e,x.dataset.photo));hydratePhotos();renderOverview()}
-$("devicesStat").onclick=()=>{$("deviceOverview").classList.add("show");renderOverview()};$("devicesStat").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){$("deviceOverview").classList.add("show");renderOverview()}};$("closeOverview").onclick=()=>$("deviceOverview").classList.remove("show");$("saveBtn").onclick=saveDevice;$("cancelBtn").onclick=reset;$("devicesStat").onclick=openDevicesOverview;$("devicesStat").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openDevicesOverview()}};$("closeOverview").onclick=closeDevicesOverview;$("closeMainOverview").onclick=closeMainOverview;$("backToOverview").onclick=openMainOverview;$("addNav").onclick=()=>{showHome();$("formCard").scrollIntoView({behavior:"smooth"});$("deviceName").focus()};$("topNav").onclick=openMainOverview;
-$("exportBtn").onclick=()=>{let b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="fitnessbegleiter-backup.json";a.click()};
-$("importFile").onchange=e=>{let f=e.target.files?.[0];if(!f)return;let r=new FileReader();r.onload=async()=>{try{let x=JSON.parse(r.result);if(Array.isArray(x.devices)){state=x;await migrateLegacyPhotos();persist()}}catch(e){alert("Backup ungültig.")}};r.readAsText(f)};
-if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));load()})();
+function saveTraining(id){
+  const d=state.devices.find(x=>x.id===id);
+  if(!d)return;
+  const w=n($("w_"+id).value,d.weight);
+  const s=n($("s_"+id).value,d.sets);
+  const r=n($("r_"+id).value,d.reps);
+  const old=d.weight;
+
+  d.weight=w;
+  d.logs.unshift({
+    date:new Date().toISOString(),
+    weight:w,
+    sets:s,
+    reps:r,
+    success:s>=d.sets&&r>=d.reps,
+    up:w>old
+  });
+
+  if(persist())showDevice(id);
+}
+async function deleteDevice(id){
+  if(!confirm("Gerät wirklich löschen?"))return;
+  state.devices=state.devices.filter(x=>x.id!==id);
+  await mediaDelete(id);
+  persist();
+  openOverview();
+}
+function savePhoto(e,id){
+  const f=e.target.files?.[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    try{
+      await mediaPut(id,rd.result);
+      const d=state.devices.find(x=>x.id===id);
+      if(d){d.hasPhoto=true;d.photo=""}
+      persist();
+      showDevice(id);
+    }catch(err){
+      alert("Foto konnte nicht gespeichert werden.");
+    }
+  };
+  rd.readAsDataURL(f);
+}
+
+$("saveBtn").onclick=saveDevice;
+$("cancelBtn").onclick=()=>selectedDeviceId?showDevice(selectedDeviceId):showHome();
+$("addNav").onclick=showAddDevice;
+$("topNav").onclick=openOverview;
+$("closeMainOverview").onclick=showHome;
+$("backToOverview").onclick=openOverview;
+$("devicesStat").onclick=openOverview;
+$("devicesStat").onkeydown=e=>{
+  if(e.key==="Enter"||e.key===" "){
+    e.preventDefault();
+    openOverview();
+  }
+};
+
+$("exportBtn").onclick=()=>{
+  const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);
+  a.download="fitnessbegleiter-backup.json";
+  a.click();
+};
+$("importFile").onchange=e=>{
+  const f=e.target.files?.[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    try{
+      const x=JSON.parse(r.result);
+      if(Array.isArray(x.devices)){
+        state=x;
+        await migrateLegacyPhotos();
+        persist();
+        openOverview();
+      }
+    }catch(e){
+      alert("Backup ungültig.");
+    }
+  };
+  r.readAsText(f);
+};
+
+if("serviceWorker"in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));
+}
+load();
+
+})();
+
 </script>
 </body></html>
