@@ -41,12 +41,18 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .sessionNav{display:flex;gap:8px;margin-top:12px}
 .sessionNav button{flex:1}
 
+
+.setRepGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 14px}
+.setRepGrid label{font-size:12px}
+.setRepGrid input{text-align:center}
+@media(max-width:380px){.setRepGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.aiHighlight{font-weight:800;margin:8px 0}
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.0</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.1</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -60,7 +66,18 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <button class="full" id="startWorkoutBtn">Training starten 💪</button>
+  <button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+</div>
+
+<div id="aiAnalysis" class="card" style="display:none">
+  <h2>🤖 KI-Auswertung</h2>
+  <p class="small">Fitnessbegleiter bereitet deine Trainingsdaten für ChatGPT auf. Es werden keine Daten automatisch an einen Server gesendet.</p>
+  <div id="aiSummary" class="history"></div>
+  <label for="aiPrompt">Analyse-Daten</label>
+  <textarea id="aiPrompt" rows="12" readonly></textarea>
+  <button class="full" id="openChatGPTBtn">In ChatGPT auswerten</button>
+  <button class="secondary full" id="copyAnalysisBtn" style="margin-top:8px">Analyse kopieren</button>
+  <button class="secondary full" id="closeAiBtn" style="margin-top:8px">Zurück</button>
 </div>
 <div id="workoutSession" style="display:none"></div>
 <div class="card" id="formCard" style="display:none">
@@ -190,6 +207,90 @@ function renderStats(){
   $("stUps").textContent=ups;
 }
 
+
+function repsArray(log,d){
+  if(Array.isArray(log?.setReps)&&log.setReps.length)return log.setReps.map(x=>Number(x)||0);
+  const sets=Math.max(1,Number(log?.sets)||Number(d?.sets)||1);
+  const reps=Number(log?.reps)||Number(d?.reps)||0;
+  return Array.from({length:sets},()=>reps);
+}
+function repsText(log,d){
+  return repsArray(log,d).join(" / ");
+}
+function setInputsHtml(prefix,sets,target,values){
+  const count=Math.max(1,Number(sets)||1);
+  const arr=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>target);
+  return `<div class="setRepGrid">${Array.from({length:count},(_,i)=>`
+    <div>
+      <label>Satz ${i+1}</label>
+      <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${Number(arr[i]??target)||0}">
+    </div>`).join("")}</div>`;
+}
+function readSetReps(prefix,sets,target){
+  const count=Math.max(1,Number(sets)||1);
+  return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
+}
+function buildAnalysisPrompt(){
+  const totalLogs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
+  let lines=[
+    "Du bist mein persönlicher Trainingsanalyst.",
+    "Analysiere meine Trainingsdaten sachlich und konkret.",
+    "Bewerte Fortschritt, Plateaus, sinnvolle Gewichtserhöhungen, Rückschritte, Trainingshäufigkeit und auffällige Unterschiede zwischen Übungen.",
+    "Berücksichtige ausdrücklich die Wiederholungen JEDES einzelnen Satzes. Wenn z. B. 12/12/8 erreicht wurden, behandle das nicht wie 3x12.",
+    "Gib für jedes Gerät eine kurze Bewertung und eine konkrete Empfehlung für das nächste Training.",
+    "Am Ende möchte ich eine kompakte Gesamtbewertung mit 3 Prioritäten.",
+    "",
+    `GESAMT: ${state.devices.length} Geräte, ${totalLogs} gespeicherte Trainingseinträge.`,
+    ""
+  ];
+  state.devices.forEach(d=>{
+    lines.push(`### ${d.name} (${d.muscle})`);
+    lines.push(`Aktuelles Arbeitsgewicht: ${fmt(d.weight)} kg`);
+    lines.push(`Ziel: ${d.sets} Sätze × ${d.reps} Wiederholungen; Steigerungsschritt: ${fmt(d.step)} kg`);
+    lines.push(`Bestleistung: ${fmt(bestWeight(d))} kg`);
+    if(d.notes)lines.push(`Geräteeinstellung/Notiz: ${d.notes}`);
+    if(!d.logs.length){
+      lines.push("Noch kein Training gespeichert.");
+    }else{
+      d.logs.slice(0,20).forEach(log=>{
+        const date=new Date(log.date).toLocaleDateString("de-DE");
+        lines.push(`${date}: ${fmt(log.weight)} kg | Sätze: ${repsText(log,d)} Wdh.`);
+      });
+    }
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+function openAiAnalysis(){
+  currentView="ai";
+  workout.active=false;
+  hideAllViews();
+  $("homeActions").style.display="none";
+  const total=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
+  $("aiSummary").innerHTML=`<div class="aiHighlight">${state.devices.length} Geräte · ${total} Trainingseinträge</div>Die Analyse enthält Gewichte sowie die Wiederholungen jedes einzelnen Satzes.`;
+  $("aiPrompt").value=buildAnalysisPrompt();
+  $("aiAnalysis").style.display="block";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function copyAnalysisText(){
+  const ta=$("aiPrompt");
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0,ta.value.length);
+  let ok=false;
+  try{ok=document.execCommand("copy")}catch(e){}
+  if(ok)alert("Analyse kopiert. Jetzt in ChatGPT einfügen.");
+  else alert("Bitte den Text markieren und kopieren.");
+}
+function openChatGPT(){
+  const ta=$("aiPrompt");
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0,ta.value.length);
+  try{document.execCommand("copy")}catch(e){}
+  window.open("https://chatgpt.com/","_blank");
+}
+
 function bestWeight(d){
   const vals=[Number(d.weight)||0,...(d.logs||[]).map(x=>Number(x.weight)||0)];
   return Math.max(...vals);
@@ -229,6 +330,7 @@ function hideAllViews(){
   $("deviceList").style.display="none";
   $("deviceDetailHeader").style.display="none";
   $("workoutSession").style.display="none";
+  $("aiAnalysis").style.display="none";
   if($("devicesOverview"))$("devicesOverview").style.display="none";
 }
 function showHome(){
@@ -329,7 +431,7 @@ async function showDevice(id){
       : `Gewicht halten: ${fmt(d.weight)} kg`;
 
   const hist=d.logs.length
-    ? d.logs.map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${x.sets} Sätze · ${x.reps} Wdh.`).join("<br>")
+    ? d.logs.map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${repsText(x,d)} Wdh.`).join("<br>")
     : "Noch kein Training gespeichert.";
 
   $("deviceList").innerHTML=`<div class="card" id="device_${d.id}">
@@ -354,13 +456,11 @@ async function showDevice(id){
       </div>
       <div>
         <label>Sätze</label>
-        <input id="s_${d.id}" type="number" inputmode="numeric" value="${d.sets}">
-      </div>
-      <div>
-        <label>Wiederholungen</label>
-        <input id="r_${d.id}" type="number" inputmode="numeric" value="${d.reps}">
+        <input id="s_${d.id}" type="number" inputmode="numeric" value="${d.sets}" readonly>
       </div>
     </div>
+    <label>Wiederholungen je Satz</label>
+    ${setInputsHtml("sr_"+d.id,d.sets,d.reps)}
     <button class="full" id="saveTraining">Training speichern</button>
 
     <div class="chartWrap">
@@ -435,8 +535,9 @@ function saveTraining(id){
   const d=state.devices.find(x=>x.id===id);
   if(!d)return;
   const w=n($("w_"+id).value,d.weight);
-  const s=n($("s_"+id).value,d.sets);
-  const r=n($("r_"+id).value,d.reps);
+  const s=d.sets;
+  const setReps=readSetReps("sr_"+id,s,d.reps);
+  const r=Math.min(...setReps);
   const old=d.weight;
 
   d.weight=w;
@@ -445,7 +546,8 @@ function saveTraining(id){
     weight:w,
     sets:s,
     reps:r,
-    success:s>=d.sets&&r>=d.reps,
+    setReps:setReps,
+    success:setReps.length===Number(d.sets)&&setReps.every(x=>x>=Number(d.reps)),
     up:w>old
   });
 
@@ -512,15 +614,15 @@ function showWorkoutStep(){
     </div>
 
     <div class="small" style="margin-top:10px">
-      ${last?`Letztes Training: ${fmt(last.weight)} kg · ${last.sets} Sätze · ${last.reps} Wdh.`:"Noch kein Training gespeichert."}
+      ${last?`Letztes Training: ${fmt(last.weight)} kg · ${repsText(last,d)} Wdh.`:"Noch kein Training gespeichert."}
     </div>
 
     <div class="grid" style="margin-top:14px">
       <div><label style="color:#d1d5db">Gewicht</label><input id="woWeight" type="number" step=".5" value="${d.weight}"></div>
-      <div><label style="color:#d1d5db">Sätze</label><input id="woSets" type="number" value="${d.sets}"></div>
-      <div><label style="color:#d1d5db">Wiederholungen</label><input id="woReps" type="number" value="${d.reps}"></div>
+      <div><label style="color:#d1d5db">Sätze</label><input type="number" value="${d.sets}" readonly></div>
     </div>
-
+    <label style="color:#d1d5db">Wiederholungen je Satz</label>
+    ${setInputsHtml("woRep",d.sets,d.reps)}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
       <button class="secondary" id="woSkip">Überspringen</button>
@@ -530,8 +632,9 @@ function showWorkoutStep(){
 
   $("woSave").onclick=()=>{
     const w=n($("woWeight").value,d.weight);
-    const s=n($("woSets").value,d.sets);
-    const r=n($("woReps").value,d.reps);
+    const s=d.sets;
+    const setReps=readSetReps("woRep",s,d.reps);
+    const r=Math.min(...setReps);
     const old=d.weight;
     d.weight=w;
     d.logs.unshift({
@@ -539,7 +642,8 @@ function showWorkoutStep(){
       weight:w,
       sets:s,
       reps:r,
-      success:s>=d.sets&&r>=d.reps,
+      setReps:setReps,
+      success:setReps.length===Number(d.sets)&&setReps.every(x=>x>=Number(d.reps)),
       up:w>old
     });
     persist();
@@ -574,6 +678,10 @@ $("devicesStat").onkeydown=e=>{
   }
 };
 $("startWorkoutBtn").onclick=startWorkout;
+$("aiAnalysisBtn").onclick=openAiAnalysis;
+$("openChatGPTBtn").onclick=openChatGPT;
+$("copyAnalysisBtn").onclick=copyAnalysisText;
+$("closeAiBtn").onclick=showHome;
 
 $("exportBtn").onclick=()=>{
   const b=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
