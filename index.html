@@ -101,12 +101,23 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .premiumAnatomy .figLabel{fill:#e5e7eb;font-size:13px;font-weight:900;letter-spacing:1.6px}
 .premiumAnatomy .body{stroke-linejoin:round;stroke-linecap:round}
 
+
+.realMuscleCard{width:100%;max-width:760px;margin:8px auto 0}
+.atlasCrop{position:relative;width:100%;aspect-ratio:1.18/1;overflow:hidden;border-radius:20px;background:#071018;border:1px solid #334155}
+.atlasCrop img{position:absolute;width:500%;height:300%;max-width:none;object-fit:fill}
+.atlasC0 img{left:0}.atlasC1 img{left:-100%}.atlasC2 img{left:-200%}.atlasC3 img{left:-300%}.atlasC4 img{left:-400%}
+.atlasR0 img{top:0}.atlasR1 img{top:-100%}.atlasR2 img{top:-200%}
+.realLegend{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin:12px 0 4px;font-weight:800;font-size:14px}
+.realLegend span{display:flex;align-items:center;gap:7px}
+.redDot,.orangeDot{display:inline-block;width:13px;height:13px;border-radius:50%}
+.redDot{background:#ff2d2d}.orangeDot{background:#ff8a00}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.5</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.6</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -409,7 +420,7 @@ function muscleInfo(d){
   }
   return {main,secondary,subtitle};
 }
-function muscleSvg(info){
+function muscleSvgLegacy(info){
   const A=info.main.map(x=>x.id),B=info.secondary.map(x=>x.id);
   const C=id=>A.includes(id)?" mainMuscle":B.includes(id)?" secondaryMuscleFill":"anatomyGhost";
   const front=`
@@ -450,13 +461,30 @@ function muscleSvg(info){
     <g transform="translate(258,22) scale(.92)"><text x="110" y="-4" text-anchor="middle" class="figLabel">HINTEN</text>${back}</g>
   </svg>`;
 }
+function muscleSvg(info,d){
+  const n=((d&&d.name)||"").trim().toLowerCase();
+  const atlas={
+    "trizeps":[0,0],"bizeps":[1,0],"incline press":[2,0],"chest press vertical":[3,0],"fulldown machine":[4,0],
+    "roman chair":[0,1],"t-bar-row":[1,1],"legs extensions":[2,1],"hip adduktion / nach innen":[3,1],"hip abduction / nach außen":[4,1],
+    "glute isolator":[0,2],"seated cable row":[1,2],"shoulder press":[2,2],"prone leg curl":[3,2],"rear delt pec fly":[4,2]
+  };
+  const p=atlas[n];
+  if(!p) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
+  const [col,row]=p;
+  return `<div class="realMuscleCard" aria-label="Realistische Muskelansicht">
+    <div class="atlasCrop atlasC${col} atlasR${row}">
+      <img src="assets/muskelansichten-realistisch.png" alt="Trainierte Muskeln – ${esc((d&&d.name)||"Gerät")}">
+    </div>
+    <div class="realLegend"><span><i class="redDot"></i>Hauptmuskeln</span><span><i class="orangeDot"></i>unterstützende Muskeln</span></div>
+  </div>`;
+}
 function openMuscles(id,from="detail"){
   const d=state.devices.find(x=>x.id===id); if(!d)return;
   muscleReturn=from;
   const info=muscleInfo(d);
   $("muscleTitle").textContent=`Trainierte Muskeln – ${d.name}`;
   $("muscleTitle").insertAdjacentHTML("beforeend",`<small class="muscleSubtitle">${info.subtitle}</small>`);
-  $("muscleBody").innerHTML=`<div class="muscleStage">${muscleSvg(info)}
+  $("muscleBody").innerHTML=`<div class="muscleStage">${muscleSvg(info,d)}
       <div class="muscleColorKey"><span><i class="keyMain"></i> Hauptmuskel</span><span><i class="keySec"></i> unterstützend</span></div>
     </div>
     <div class="muscleInfo"><b>Hauptmuskel</b><div>${info.main.map(x=>x.label).join("<br>")}</div>
