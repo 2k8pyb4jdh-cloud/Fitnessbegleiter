@@ -47,12 +47,31 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .setRepGrid input{text-align:center}
 @media(max-width:380px){.setRepGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .aiHighlight{font-weight:800;margin:8px 0}
+
+.coachBox{margin:14px 0;padding:14px;border-radius:14px;background:#fef3c7;color:#78350f;border:1px solid #fde68a}
+.coachBox.good{background:#dcfce7;color:#14532d;border-color:#bbf7d0}
+.coachTitle{font-size:17px;font-weight:900;margin-bottom:5px}
+.muscleBtn{width:100%;margin:12px 0;background:#166534}
+.muscleOverlay{position:fixed;inset:0;z-index:9999;background:#0b0f14;color:white;overflow:auto;padding:18px 14px 34px}
+.musclePanel{max-width:620px;margin:0 auto}
+.muscleTop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.muscleTop h2{font-size:25px;margin:0}
+.muscleStage{margin:16px auto 12px;max-width:430px;background:#111827;border-radius:20px;padding:12px}
+.muscleSvg{display:block;width:100%;height:auto;max-height:64vh}
+.muscleSvg .body{fill:#d1d5db;stroke:#6b7280;stroke-width:1.2}
+.muscleSvg .m{fill:#9ca3af;stroke:#6b7280;stroke-width:.8}
+.muscleSvg .active{fill:#ef4444;stroke:#991b1b;stroke-width:1.4}
+.muscleInfo{background:#171c23;border:1px solid #374151;border-radius:16px;padding:15px;margin:12px 0}
+.muscleInfo b{color:#86efac}
+.muscleInfo .secondaryMuscle{color:#fbbf24}
+.closeMuscle{width:100%;background:#16a34a;font-size:17px;padding:14px}
+@media(max-width:390px){.muscleOverlay{padding-left:10px;padding-right:10px}.muscleStage{padding:8px}}
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.1</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.2</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -80,6 +99,14 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
   <button class="secondary full" id="closeAiBtn" style="margin-top:8px">Zurück</button>
 </div>
 <div id="workoutSession" style="display:none"></div>
+<div id="muscleView" class="muscleOverlay" style="display:none">
+  <div class="musclePanel">
+    <div class="muscleTop"><h2 id="muscleTitle">Trainierte Muskeln</h2><button class="secondary" id="muscleCloseTop">✕</button></div>
+    <div id="muscleBody"></div>
+    <button class="closeMuscle" id="muscleClose">Verstanden</button>
+  </div>
+</div>
+
 <div class="card" id="formCard" style="display:none">
 <h2 id="formTitle">Gerät hinzufügen</h2>
 <div class="notice">Gerät zunächst notfalls als „Gerät 1“ anlegen. Nach deinem Foto können wir die exakte Übung festlegen.</div>
@@ -291,6 +318,84 @@ function openChatGPT(){
   window.open("https://chatgpt.com/","_blank");
 }
 
+
+let muscleReturn="detail";
+
+function progressionAdvice(d){
+  if(!d.logs?.length) return {good:false,title:`Startgewicht: ${fmt(d.weight)} kg`,text:"Noch keine Trainingseinheit gespeichert. Erst einmal sauber trainieren und alle Sätze erfassen."};
+  const targetSets=Math.max(1,Number(d.sets)||1), targetReps=Math.max(1,Number(d.reps)||1);
+  const last=d.logs[0], reps=repsArray(last,d).slice(0,targetSets);
+  const complete=reps.length===targetSets && reps.every(v=>v>=targetReps);
+  const step=Number(d.step)||0;
+  if(complete && step>0){
+    const next=Number(last.weight)+step;
+    return {good:true,title:`📈 ${fmt(next)} kg testen`,text:`Letzte Einheit: ${reps.join(" / ")} Wdh. Dein Ziel ${targetSets}×${targetReps} wurde erreicht. Beim nächsten Training kannst du den nächsten Gewichtsschritt versuchen.`};
+  }
+  return {good:false,title:`➡️ ${fmt(last.weight)} kg halten`,text:`Letzte Einheit: ${reps.join(" / ")} Wdh. Das Ziel ${targetSets}×${targetReps} ist noch nicht vollständig erreicht. Erst alle Sätze stabilisieren, dann steigern.`};
+}
+function adviceHtml(d){
+  const a=progressionAdvice(d);
+  return `<div class="coachBox ${a.good?"good":""}"><div class="coachTitle">Empfehlung zur Steigerung</div><b>${a.title}</b><div class="small" style="margin-top:5px;color:inherit">${a.text}</div></div>`;
+}
+function muscleInfo(d){
+  const t=((d.name||"")+" "+(d.muscle||"")).toLowerCase();
+  let ids=[], main=[], secondary=[];
+  const add=(id,label,sec=false)=>{if(!ids.includes(id))ids.push(id);(sec?secondary:main).push(label)};
+  if(/bizeps|biceps|curl/.test(t)){add("biceps","Bizeps (Oberarm vorne)");add("forearms","Brachialis / Unterarm",true)}
+  if(/trizeps|triceps|pushdown/.test(t)){add("triceps","Trizeps (Oberarm hinten)");add("shoulders","Schulter",true)}
+  if(/brust|chest|butterfly|pec|bankdr/.test(t)){add("chest","Brustmuskulatur");add("triceps","Trizeps",true);add("shoulders","vordere Schulter",true)}
+  if(/schulter|shoulder|delto|seitheben/.test(t)){add("shoulders","Schultermuskulatur");add("triceps","Trizeps",true)}
+  if(/rücken|ruecken|lat|rudern|row|pulldown/.test(t)){add("lats","Latissimus / Rücken");add("biceps","Bizeps",true);add("upperback","mittlerer Rücken",true)}
+  if(/unterer rücken|unterer ruecken|rückenstrecker|rueckenstrecker|back extension/.test(t)){ids=[];main=[];secondary=[];add("lowerback","Rückenstrecker");add("glutes","Gesäß",true);add("hamstrings","Beinbeuger",true)}
+  if(/bauch|abs|abdominal/.test(t))add("abs","Bauchmuskulatur");
+  if(/beinstrecker|quadrizeps|leg extension/.test(t))add("quads","Quadrizeps (Oberschenkel vorne)");
+  if(/beinbeuger|hamstring|leg curl/.test(t)){add("hamstrings","Beinbeuger (Oberschenkel hinten)");add("calves","Waden",true)}
+  if(/addukt/.test(t))add("adductors","Adduktoren (Oberschenkel innen)");
+  if(/abdukt/.test(t)){add("abductors","Abduktoren / seitliches Gesäß");add("glutes","Gesäß",true)}
+  if(/gesäß|gesaess|glut|hip thrust|bein.*hinten/.test(t)){add("glutes","Gesäßmuskulatur");add("hamstrings","Beinbeuger",true)}
+  if(/wade|calf/.test(t))add("calves","Wadenmuskulatur");
+  if(!ids.length){main=[d.muscle||"Zielmuskulatur"];ids=["generic"]}
+  return {ids,main:[...new Set(main)],secondary:[...new Set(secondary)]};
+}
+function muscleSvg(info){
+  const a=id=>info.ids.includes(id)?" active":"";
+  return `<svg class="muscleSvg" viewBox="0 0 240 500" role="img" aria-label="Darstellung der trainierten Muskelgruppen">
+    <circle class="body" cx="120" cy="35" r="26"/>
+    <path class="body" d="M88 70 Q120 55 152 70 L163 205 Q145 225 120 228 Q95 225 77 205 Z"/>
+    <path class="body" d="M82 80 L48 205 L63 210 L99 105 Z"/><path class="body" d="M158 80 L192 205 L177 210 L141 105 Z"/>
+    <path class="body" d="M96 220 L78 430 L101 432 L121 245 Z"/><path class="body" d="M144 220 L162 430 L139 432 L119 245 Z"/>
+    <ellipse class="m${a("shoulders")}" cx="82" cy="90" rx="18" ry="16"/><ellipse class="m${a("shoulders")}" cx="158" cy="90" rx="18" ry="16"/>
+    <path class="m${a("chest")}" d="M94 94 Q120 78 146 94 L142 130 Q120 143 98 130 Z"/>
+    <path class="m${a("abs")}" d="M105 135 L135 135 L138 202 L102 202 Z"/>
+    <ellipse class="m${a("biceps")}" cx="69" cy="137" rx="11" ry="28"/><ellipse class="m${a("biceps")}" cx="171" cy="137" rx="11" ry="28"/>
+    <ellipse class="m${a("triceps")}" cx="60" cy="145" rx="8" ry="27"/><ellipse class="m${a("triceps")}" cx="180" cy="145" rx="8" ry="27"/>
+    <ellipse class="m${a("forearms")}" cx="54" cy="185" rx="8" ry="25"/><ellipse class="m${a("forearms")}" cx="186" cy="185" rx="8" ry="25"/>
+    <path class="m${a("lats")}" d="M91 110 L105 178 L88 199 L78 120 Z"/><path class="m${a("lats")}" d="M149 110 L135 178 L152 199 L162 120 Z"/>
+    <path class="m${a("upperback")}" d="M100 80 L140 80 L136 115 L104 115 Z"/><path class="m${a("lowerback")}" d="M106 185 L134 185 L132 225 L108 225 Z"/>
+    <ellipse class="m${a("glutes")}" cx="106" cy="230" rx="20" ry="18"/><ellipse class="m${a("glutes")}" cx="134" cy="230" rx="20" ry="18"/>
+    <path class="m${a("quads")}" d="M92 245 L116 245 L108 345 L84 345 Z"/><path class="m${a("quads")}" d="M124 245 L148 245 L156 345 L132 345 Z"/>
+    <path class="m${a("hamstrings")}" d="M82 250 L95 250 L91 344 L78 344 Z"/><path class="m${a("hamstrings")}" d="M145 250 L158 250 L162 344 L149 344 Z"/>
+    <path class="m${a("adductors")}" d="M110 245 L120 245 L110 338 L99 338 Z"/><path class="m${a("adductors")}" d="M120 245 L130 245 L141 338 L130 338 Z"/>
+    <path class="m${a("abductors")}" d="M82 230 L94 235 L84 310 L72 305 Z"/><path class="m${a("abductors")}" d="M146 235 L158 230 L168 305 L156 310 Z"/>
+    <ellipse class="m${a("calves")}" cx="90" cy="382" rx="13" ry="35"/><ellipse class="m${a("calves")}" cx="150" cy="382" rx="13" ry="35"/>
+  </svg>`;
+}
+function openMuscles(id,from="detail"){
+  const d=state.devices.find(x=>x.id===id); if(!d)return;
+  muscleReturn=from;
+  const info=muscleInfo(d);
+  $("muscleTitle").textContent=`Trainierte Muskeln – ${d.name}`;
+  $("muscleBody").innerHTML=`<div class="muscleStage">${muscleSvg(info)}</div>
+    <div class="muscleInfo"><b>Hauptmuskel</b><div>${info.main.join("<br>")}</div>
+    ${info.secondary.length?`<br><b class="secondaryMuscle">Unterstützende Muskeln</b><div>${info.secondary.join("<br>")}</div>`:""}</div>`;
+  $("muscleView").style.display="block";
+  document.body.style.overflow="hidden";
+}
+function closeMuscles(){
+  $("muscleView").style.display="none";
+  document.body.style.overflow="";
+}
+
 function bestWeight(d){
   const vals=[Number(d.weight)||0,...(d.logs||[]).map(x=>Number(x.weight)||0)];
   return Math.max(...vals);
@@ -446,7 +551,8 @@ async function showDevice(id){
 
     <div class="weight">${fmt(d.weight)} kg</div>
     <div class="small">aktuelles Arbeitsgewicht</div>
-    <div class="recommend ${last&&!ok?"hold":""}">${rec}</div>
+    ${adviceHtml(d)}
+    <button class="muscleBtn" id="showMuscles">🧍 Muskeln anzeigen</button>
 
     <h2 style="margin-top:18px">Training eintragen</h2>
     <div class="grid">
@@ -479,6 +585,7 @@ async function showDevice(id){
   </div>`;
 
   $("saveTraining").onclick=()=>saveTraining(d.id);
+  $("showMuscles").onclick=()=>openMuscles(d.id,"detail");
   $("editDevice").onclick=()=>showEditDevice(d.id);
   $("deleteDevice").onclick=()=>deleteDevice(d.id);
   $("photoInput").onchange=e=>savePhoto(e,d.id);
@@ -616,6 +723,8 @@ function showWorkoutStep(){
     <div class="small" style="margin-top:10px">
       ${last?`Letztes Training: ${fmt(last.weight)} kg · ${repsText(last,d)} Wdh.`:"Noch kein Training gespeichert."}
     </div>
+    ${adviceHtml(d)}
+    <button class="muscleBtn" id="woMuscles">🧍 Muskeln anzeigen</button>
 
     <div class="grid" style="margin-top:14px">
       <div><label style="color:#d1d5db">Gewicht</label><input id="woWeight" type="number" step=".5" value="${d.weight}"></div>
@@ -630,6 +739,7 @@ function showWorkoutStep(){
     </div>
   </div>`;
 
+  $("woMuscles").onclick=()=>openMuscles(d.id,"workout");
   $("woSave").onclick=()=>{
     const w=n($("woWeight").value,d.weight);
     const s=d.sets;
@@ -678,6 +788,8 @@ $("devicesStat").onkeydown=e=>{
   }
 };
 $("startWorkoutBtn").onclick=startWorkout;
+$("muscleClose").onclick=closeMuscles;
+$("muscleCloseTop").onclick=closeMuscles;
 $("aiAnalysisBtn").onclick=openAiAnalysis;
 $("openChatGPTBtn").onclick=openChatGPT;
 $("copyAnalysisBtn").onclick=copyAnalysisText;
