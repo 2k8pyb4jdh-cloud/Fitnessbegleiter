@@ -91,12 +91,22 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .v44Figure .secondaryMuscleFill{fill:#f59e0b;fill-opacity:.94;stroke:#b45309;stroke-width:1.1}
 .v44Figure .figLabel{fill:#e5e7eb;font-size:13px;font-weight:900;letter-spacing:1.5px}
 
+
+.premiumAnatomy .skin{fill:#d8d0c8;stroke:#6f6a66;stroke-width:1.25}
+.premiumAnatomy .tank{fill:#293548;stroke:#111827;stroke-width:1.25}
+.premiumAnatomy .shorts{fill:#172033;stroke:#111827;stroke-width:1.25}
+.premiumAnatomy .anatomyGhost{fill:#aeb4bd;fill-opacity:.12;stroke:#7d8591;stroke-width:.55}
+.premiumAnatomy .mainMuscle{fill:#ef4444;fill-opacity:.98;stroke:#991b1b;stroke-width:1.15}
+.premiumAnatomy .secondaryMuscleFill{fill:#f59e0b;fill-opacity:.96;stroke:#b45309;stroke-width:1.05}
+.premiumAnatomy .figLabel{fill:#e5e7eb;font-size:13px;font-weight:900;letter-spacing:1.6px}
+.premiumAnatomy .body{stroke-linejoin:round;stroke-linecap:round}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.4</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.5</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -363,63 +373,81 @@ function adviceHtml(d){
   return `<div class="coachBox ${a.good?"good":""}"><div class="coachTitle">Empfehlung zur Steigerung</div><b>${a.title}</b><div class="small" style="margin-top:5px;color:inherit">${a.text}</div></div>`;
 }
 function muscleInfo(d){
-  const t=((d.name||"")+" "+(d.muscle||"")).toLowerCase();
+  const raw=(d.name||"").trim(), n=raw.toLowerCase();
   let main=[],secondary=[],subtitle="";
   const M=(id,label)=>{if(!main.some(x=>x.id===id))main.push({id,label})};
   const S=(id,label)=>{if(!main.some(x=>x.id===id)&&!secondary.some(x=>x.id===id))secondary.push({id,label})};
 
-  if(/leg extension|legs extension|beinstrecker|kniestrecker/.test(t)){subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps (Oberschenkel vorne)")}
-  else if(/leg curl|legs curl|beinbeuger|hamstring curl/.test(t)){subtitle="Beinbeuger · hinterer Oberschenkel";M("hamstrings","Beinbeuger (Oberschenkel hinten)");S("calves","Waden")}
-  else if(/leg press|beinpresse/.test(t)){subtitle="Beinpresse · Oberschenkel / Gesäß";M("quads","Quadrizeps");S("glutes","Gesäß");S("hamstrings","Beinbeuger")}
-  else if(/addukt|adductor/.test(t)){subtitle="Adduktoren · Oberschenkel innen";M("adductors","Adduktoren")}
-  else if(/abdukt|abductor/.test(t)){subtitle="Abduktoren · Hüfte / Gesäß";M("abductors","Abduktoren");S("glutes","seitliches Gesäß")}
-  else if(/glute|gesäß|gesaess|hip thrust|kickback|bein.*hinten/.test(t)){subtitle="Gesäß · Hüftstreckung";M("glutes","Gesäßmuskulatur");S("hamstrings","Beinbeuger")}
-  else if(/calf|wade|waden/.test(t)){subtitle="Waden · Unterschenkel";M("calves","Wadenmuskulatur")}
-  else if(/bizeps|biceps|bicep|curl/.test(t)){subtitle="Armbeuger · Bizeps";M("biceps","Bizeps (Oberarm vorne)");S("brachialis","Brachialis");S("forearms","Unterarmmuskulatur")}
-  else if(/trizeps|triceps|tricep|pushdown|arm extension/.test(t)){subtitle="Armstrecker · Trizeps";M("triceps","Trizeps (Oberarm hinten)")}
-  else if(/brust|chest|pec|pectoral|butterfly|fly|bankdr|bench press/.test(t)){subtitle="Brust · Brustmuskulatur";M("chest","Brustmuskulatur");S("triceps","Trizeps");S("shoulders","vordere Schulter")}
-  else if(/schulter|shoulder|delto|seitheben|lateral raise|overhead press/.test(t)){subtitle="Schulter · Deltamuskel";M("shoulders","Schultermuskulatur");S("triceps","Trizeps")}
-  else if(/lat|latzug|pulldown/.test(t)){subtitle="Latissimus · breiter Rücken";M("lats","Latissimus");S("biceps","Bizeps");S("upperback","oberer Rücken")}
-  else if(/rudern|row|rowing/.test(t)){subtitle="Rudern · mittlerer Rücken";M("upperback","mittlerer / oberer Rücken");S("lats","Latissimus");S("biceps","Bizeps")}
-  else if(/rückenstrecker|rueckenstrecker|back extension|lower back|unterer rücken|unterer ruecken/.test(t)){subtitle="Rückenstrecker · unterer Rücken";M("lowerback","Rückenstrecker");S("glutes","Gesäß");S("hamstrings","Beinbeuger")}
-  else if(/bauch|abs|abdominal|crunch/.test(t)){subtitle="Bauch · Rumpfbeugung";M("abs","Bauchmuskulatur")}
-  else {subtitle=d.muscle||"Zielmuskulatur";M("generic",d.muscle||"Zielmuskulatur")}
+  const exact=[
+    [/^trizeps$/,()=>{subtitle="Armstrecker · Trizeps";M("triceps","Trizeps");}],
+    [/^bizeps$/,()=>{subtitle="Armbeuger · Bizeps";M("biceps","Bizeps");S("brachialis","Brachialis");S("forearms","Unterarmmuskulatur");}],
+    [/^incline press$/,()=>{subtitle="Schrägbankdrücken · obere Brust";M("upperchest","oberer Anteil der Brustmuskulatur");S("frontdelts","vordere Schulter");S("triceps","Trizeps");}],
+    [/^chest press vertical$/,()=>{subtitle="Brustpresse · Brust";M("chest","Brustmuskulatur");S("frontdelts","vordere Schulter");S("triceps","Trizeps");}],
+    [/^fulldown machine$/,()=>{subtitle="Zugbewegung · Latissimus";M("lats","Latissimus");S("upperback","oberer / mittlerer Rücken");S("biceps","Bizeps");}],
+    [/^roman chair$/,()=>{subtitle="Rückenstrecker · unterer Rücken";M("lowerback","Rückenstrecker");S("glutes","Gesäß");S("hamstrings","Beinbeuger");}],
+    [/^t-bar-row$/,()=>{subtitle="Rudern · mittlerer Rücken";M("midback","mittlerer Rücken");S("lats","Latissimus");S("reardelts","hintere Schulter");S("biceps","Bizeps");}],
+    [/^legs extensions$/,()=>{subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}],
+    [/^hip adduktion \/ nach innen$/,()=>{subtitle="Adduktion · Oberschenkel innen";M("adductors","Adduktoren");}],
+    [/^hip abduktion \/ nach außen$/,()=>{subtitle="Abduktion · seitliches Gesäß";M("abductors","Abduktoren / Gluteus medius");S("glutes","Gesäß");}],
+    [/^glute isolator$/,()=>{subtitle="Hüftstreckung · Gesäß";M("glutes","Gesäßmuskulatur");S("hamstrings","Beinbeuger");}],
+    [/^seated cable row$/,()=>{subtitle="Kabelrudern · mittlerer Rücken";M("midback","mittlerer Rücken");S("lats","Latissimus");S("reardelts","hintere Schulter");S("biceps","Bizeps");}],
+    [/^shoulder press$/,()=>{subtitle="Schulterdrücken · Schulter";M("frontdelts","vordere / seitliche Schulter");S("triceps","Trizeps");}],
+    [/^prone leg curl$/,()=>{subtitle="Beinbeuger · hinterer Oberschenkel";M("hamstrings","Beinbeuger");S("calves","Waden");}],
+    [/^rear delt pec fly$/,()=>{subtitle="Reverse Fly · hintere Schulter";M("reardelts","hintere Schulter");S("upperback","oberer Rücken");}]
+  ];
+
+  let hit=false;
+  for(const [rx,fn] of exact){if(rx.test(n)){fn();hit=true;break;}}
+  if(!hit){
+    const t=(raw+" "+(d.muscle||"")).toLowerCase();
+    if(/leg extension|beinstrecker/.test(t)){subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}
+    else if(/leg curl|beinbeuger/.test(t)){subtitle="Beinbeuger";M("hamstrings","Beinbeuger");}
+    else if(/bizeps|biceps|curl/.test(t)){subtitle="Armbeuger · Bizeps";M("biceps","Bizeps");S("forearms","Unterarm");}
+    else if(/trizeps|triceps|pushdown/.test(t)){subtitle="Armstrecker · Trizeps";M("triceps","Trizeps");}
+    else if(/roman chair|rückenstrecker|back extension/.test(t)){subtitle="Rückenstrecker · unterer Rücken";M("lowerback","Rückenstrecker");S("glutes","Gesäß");S("hamstrings","Beinbeuger");}
+    else {subtitle=d.muscle||"Zielmuskulatur";M("generic",d.muscle||"Zielmuskulatur");}
+  }
   return {main,secondary,subtitle};
 }
 function muscleSvg(info){
-  const mainIds=info.main.map(x=>x.id),secIds=info.secondary.map(x=>x.id);
-  const C=id=>mainIds.includes(id)?" mainMuscle":secIds.includes(id)?" secondaryMuscleFill":"muscleBase";
+  const A=info.main.map(x=>x.id),B=info.secondary.map(x=>x.id);
+  const C=id=>A.includes(id)?" mainMuscle":B.includes(id)?" secondaryMuscleFill":"anatomyGhost";
   const front=`
-    <ellipse class="skin" cx="100" cy="52" rx="27" ry="31"/>
-    <path class="skin" d="M84 80L116 80L121 101Q143 107 154 128L164 199L151 204L140 151L134 254Q124 270 119 282L123 333L116 506L101 553L84 506L77 333L81 282Q75 270 66 254L60 151L49 204L36 199L46 128Q57 107 79 101Z"/>
-    <path class="tank" d="M78 99Q100 112 122 99L139 118L130 224Q100 241 70 224L61 118Z"/>
-    <path class="shorts" d="M70 252Q100 262 130 252L134 329L108 333L100 294L92 333L66 329Z"/>
-    <ellipse class="${C("shoulders")}" cx="58" cy="126" rx="17" ry="14"/><ellipse class="${C("shoulders")}" cx="142" cy="126" rx="17" ry="14"/>
-    <ellipse class="${C("biceps")}" cx="48" cy="162" rx="10" ry="27"/><ellipse class="${C("biceps")}" cx="152" cy="162" rx="10" ry="27"/>
-    <ellipse class="${C("brachialis")}" cx="50" cy="185" rx="7" ry="16"/><ellipse class="${C("brachialis")}" cx="150" cy="185" rx="7" ry="16"/>
-    <ellipse class="${C("forearms")}" cx="42" cy="214" rx="8" ry="25"/><ellipse class="${C("forearms")}" cx="158" cy="214" rx="8" ry="25"/>
-    <path class="${C("chest")}" d="M72 117Q100 105 128 117L124 157Q100 172 76 157Z"/>
-    <path class="${C("abs")}" d="M83 163L117 163L120 238Q100 249 80 238Z"/>
-    <path class="${C("quads")}" d="M68 323Q82 312 95 329L90 424Q79 445 66 423Z"/><path class="${C("quads")}" d="M105 329Q118 312 132 323L134 423Q121 445 110 424Z"/>
-    <path class="${C("adductors")}" d="M88 324L100 336L94 414L83 401Z"/><path class="${C("adductors")}" d="M100 336L112 324L117 401L106 414Z"/>
-    <path class="${C("abductors")}" d="M66 319L78 322L70 381L60 374Z"/><path class="${C("abductors")}" d="M122 322L134 319L140 374L130 381Z"/>
-    <ellipse class="${C("calves")}" cx="79" cy="464" rx="11" ry="37"/><ellipse class="${C("calves")}" cx="121" cy="464" rx="11" ry="37"/>`;
+  <g class="body">
+    <ellipse class="skin" cx="110" cy="55" rx="29" ry="34"/>
+    <path class="skin" d="M94 87 Q110 94 126 87 L130 105 Q154 110 171 132 Q180 147 183 171 L188 223 Q188 237 177 239 L165 187 L157 151 L151 250 Q145 272 137 289 L141 340 L134 430 L130 526 Q126 556 111 579 Q96 556 92 526 L88 430 L81 340 L85 289 Q77 272 71 250 L65 151 L57 187 L45 239 Q34 237 34 223 L39 171 Q42 147 51 132 Q68 110 92 105 Z"/>
+    <path class="tank" d="M91 103 Q110 114 129 103 L147 119 L153 150 L145 237 Q110 255 75 237 L67 150 L73 119 Z"/>
+    <path class="shorts" d="M80 274 Q110 286 140 274 L145 350 L120 354 L110 314 L100 354 L75 350 Z"/>
+    <path class="${C("frontdelts")}" d="M67 120 Q51 121 48 139 Q51 153 65 156 Q75 144 77 128 Z"/><path class="${C("frontdelts")}" d="M153 120 Q169 121 172 139 Q169 153 155 156 Q145 144 143 128 Z"/>
+    <path class="${C("biceps")}" d="M54 151 Q43 167 46 198 Q51 213 60 199 Q68 173 64 151 Z"/><path class="${C("biceps")}" d="M166 151 Q177 167 174 198 Q169 213 160 199 Q152 173 156 151 Z"/>
+    <path class="${C("brachialis")}" d="M57 190 Q49 204 51 218 Q58 225 64 213 L66 191 Z"/><path class="${C("brachialis")}" d="M163 190 Q171 204 169 218 Q162 225 156 213 L154 191 Z"/>
+    <path class="${C("forearms")}" d="M45 207 Q37 225 38 246 Q45 257 52 243 L58 210 Z"/><path class="${C("forearms")}" d="M175 207 Q183 225 182 246 Q175 257 168 243 L162 210 Z"/>
+    <path class="${C("upperchest")}" d="M78 121 Q110 105 142 121 L138 145 Q110 136 82 145 Z"/>
+    <path class="${C("chest")}" d="M80 139 Q110 129 140 139 L136 178 Q110 194 84 178 Z"/>
+    <path class="${C("quads")}" d="M77 342 Q90 325 104 342 L101 442 Q94 468 82 450 Q73 414 77 342 Z"/><path class="${C("quads")}" d="M116 342 Q130 325 143 342 Q147 414 138 450 Q126 468 119 442 Z"/>
+    <path class="${C("adductors")}" d="M99 342 L110 355 L104 442 L91 423 Z"/><path class="${C("adductors")}" d="M110 355 L121 342 L129 423 L116 442 Z"/>
+    <path class="${C("abductors")}" d="M76 330 Q87 323 96 333 L87 398 L73 382 Z"/><path class="${C("abductors")}" d="M124 333 Q133 323 144 330 L147 382 L133 398 Z"/>
+    <path class="${C("calves")}" d="M84 438 Q72 470 79 514 Q88 538 97 510 L100 451 Z"/><path class="${C("calves")}" d="M136 438 Q148 470 141 514 Q132 538 123 510 L120 451 Z"/>
+  </g>`;
   const back=`
-    <ellipse class="skin" cx="100" cy="52" rx="27" ry="31"/>
-    <path class="skin" d="M84 80L116 80L121 101Q143 107 154 128L164 199L151 204L140 151L134 254Q124 270 119 282L123 333L116 506L101 553L84 506L77 333L81 282Q75 270 66 254L60 151L49 204L36 199L46 128Q57 107 79 101Z"/>
-    <path class="tank" d="M78 99L122 99L139 118L130 224Q100 241 70 224L61 118Z"/>
-    <path class="shorts" d="M70 252Q100 262 130 252L134 329L108 333L100 294L92 333L66 329Z"/>
-    <ellipse class="${C("shoulders")}" cx="58" cy="126" rx="17" ry="14"/><ellipse class="${C("shoulders")}" cx="142" cy="126" rx="17" ry="14"/>
-    <ellipse class="${C("triceps")}" cx="48" cy="164" rx="9" ry="27"/><ellipse class="${C("triceps")}" cx="152" cy="164" rx="9" ry="27"/>
-    <path class="${C("upperback")}" d="M73 112Q100 102 127 112L122 153Q100 166 78 153Z"/>
-    <path class="${C("lats")}" d="M68 143Q79 154 84 215L70 225L62 164Z"/><path class="${C("lats")}" d="M132 143Q121 154 116 215L130 225L138 164Z"/>
-    <path class="${C("lowerback")}" d="M84 194L116 194L119 250Q100 262 81 250Z"/>
-    <ellipse class="${C("glutes")}" cx="84" cy="286" rx="22" ry="20"/><ellipse class="${C("glutes")}" cx="116" cy="286" rx="22" ry="20"/>
-    <path class="${C("hamstrings")}" d="M70 326Q83 318 94 329L89 421Q79 438 68 420Z"/><path class="${C("hamstrings")}" d="M106 329Q117 318 130 326L132 420Q121 438 111 421Z"/>
-    <ellipse class="${C("calves")}" cx="79" cy="464" rx="11" ry="37"/><ellipse class="${C("calves")}" cx="121" cy="464" rx="11" ry="37"/>`;
-  return `<svg class="muscleSvg realisticFigure v44Figure" viewBox="0 0 440 610" role="img" aria-label="Trainierte Muskelgruppen">
-    <g transform="translate(12,20) scale(.94)"><text x="100" y="-3" text-anchor="middle" class="figLabel">VORNE</text>${front}</g>
-    <g transform="translate(226,20) scale(.94)"><text x="100" y="-3" text-anchor="middle" class="figLabel">HINTEN</text>${back}</g>
+  <g class="body">
+    <ellipse class="skin" cx="110" cy="55" rx="29" ry="34"/>
+    <path class="skin" d="M94 87 Q110 94 126 87 L130 105 Q154 110 171 132 Q180 147 183 171 L188 223 Q188 237 177 239 L165 187 L157 151 L151 250 Q145 272 137 289 L141 340 L134 430 L130 526 Q126 556 111 579 Q96 556 92 526 L88 430 L81 340 L85 289 Q77 272 71 250 L65 151 L57 187 L45 239 Q34 237 34 223 L39 171 Q42 147 51 132 Q68 110 92 105 Z"/>
+    <path class="tank" d="M91 103 L129 103 L147 119 L153 150 L145 237 Q110 255 75 237 L67 150 L73 119 Z"/>
+    <path class="shorts" d="M80 274 Q110 286 140 274 L145 350 L120 354 L110 314 L100 354 L75 350 Z"/>
+    <path class="${C("reardelts")}" d="M67 120 Q51 121 48 139 Q51 153 65 156 Q76 143 77 128 Z"/><path class="${C("reardelts")}" d="M153 120 Q169 121 172 139 Q169 153 155 156 Q144 143 143 128 Z"/>
+    <path class="${C("triceps")}" d="M55 150 Q44 171 48 204 Q55 215 63 198 L65 153 Z"/><path class="${C("triceps")}" d="M165 150 Q176 171 172 204 Q165 215 157 198 L155 153 Z"/>
+    <path class="${C("upperback")}" d="M78 116 Q110 103 142 116 L137 155 Q110 171 83 155 Z"/>
+    <path class="${C("midback")}" d="M83 148 Q110 163 137 148 L132 210 Q110 225 88 210 Z"/>
+    <path class="${C("lats")}" d="M72 142 Q88 159 91 225 L76 241 L66 174 Z"/><path class="${C("lats")}" d="M148 142 Q132 159 129 225 L144 241 L154 174 Z"/>
+    <path class="${C("lowerback")}" d="M94 202 L126 202 L131 262 Q110 276 89 262 Z"/>
+    <path class="${C("glutes")}" d="M77 279 Q93 263 109 282 L106 325 Q88 344 74 322 Z"/><path class="${C("glutes")}" d="M111 282 Q127 263 143 279 L146 322 Q132 344 114 325 Z"/>
+    <path class="${C("hamstrings")}" d="M76 337 Q90 326 103 342 L99 440 Q90 462 79 445 Z"/><path class="${C("hamstrings")}" d="M117 342 Q130 326 144 337 L141 445 Q130 462 121 440 Z"/>
+    <path class="${C("calves")}" d="M84 438 Q72 470 79 514 Q88 538 97 510 L100 451 Z"/><path class="${C("calves")}" d="M136 438 Q148 470 141 514 Q132 538 123 510 L120 451 Z"/>
+  </g>`;
+  return `<svg class="muscleSvg premiumAnatomy" viewBox="0 0 500 630" role="img" aria-label="Trainierte Muskelgruppen">
+    <g transform="translate(8,22) scale(.92)"><text x="110" y="-4" text-anchor="middle" class="figLabel">VORNE</text>${front}</g>
+    <g transform="translate(258,22) scale(.92)"><text x="110" y="-4" text-anchor="middle" class="figLabel">HINTEN</text>${back}</g>
   </svg>`;
 }
 function openMuscles(id,from="detail"){
