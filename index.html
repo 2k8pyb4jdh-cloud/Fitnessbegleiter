@@ -165,12 +165,27 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .timerPresets{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
 .timerPresets button{padding:8px 10px}
 
+
+/* v4.8.1 – Kalender kontrastreicher */
+#calendarView{background:#fff;color:#111}
+#calendarView h2,#calendarView .calendarTitle{color:#111}
+#calendarView .small{color:#333}
+#calendarView .calendarStat{background:#f3f4f6;border-color:#d1d5db;color:#111}
+#calendarView .calDow{color:#333}
+#calendarView .calDay{background:#fff;color:#111;border-color:#cbd5e1}
+#calendarView .calDay.today{border:2px solid #111}
+#calendarView .calDay.trained{background:#22c55e;color:#07140b;border-color:#15803d}
+#calendarView .calDay.trained:after{background:#fff}
+#calendarView .calDay.selected{outline:3px solid #111;outline-offset:1px}
+#calendarView .dayTraining{background:#f3f4f6;border-color:#d1d5db;color:#111}
+#calendarView button.secondary{background:#e5e7eb;color:#111;border-color:#cbd5e1}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.8</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.8.1</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
