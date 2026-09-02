@@ -142,12 +142,35 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
   .singleLegend{gap:14px;font-size:13px}
 }
 
+
+/* v4.8 – Trainingskalender + Pausentimer */
+.calendarHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0}
+.calendarTitle{font-size:19px;font-weight:900;text-transform:capitalize}
+.calendarGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.calDow{text-align:center;font-size:11px;font-weight:800;color:#94a3b8;padding:5px 0}
+.calDay{aspect-ratio:1/1;border:1px solid #334155;border-radius:10px;background:#111827;color:#e5e7eb;font-weight:800;position:relative;padding:0}
+.calDay.empty{visibility:hidden}.calDay.today{border-color:#22c55e}
+.calDay.trained{background:#153b28;border-color:#22c55e}
+.calDay.trained:after{content:"";position:absolute;width:6px;height:6px;border-radius:50%;background:#22c55e;bottom:5px;left:50%;transform:translateX(-50%)}
+.calDay.selected{outline:2px solid #fff}
+.calendarStats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 14px}
+.calendarStat{background:#111827;border:1px solid #334155;border-radius:12px;padding:10px;text-align:center}
+.calendarStat b{display:block;font-size:20px}
+.dayTraining{margin-top:12px;padding:12px;border-radius:12px;background:#111827;border:1px solid #334155;line-height:1.55}
+.timerBar{position:fixed;left:12px;right:12px;bottom:78px;z-index:1500;background:#071018;border:1px solid #22c55e;border-radius:18px;padding:12px 14px;box-shadow:0 12px 30px #0009;display:none}
+.timerTop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.timerClock{font-size:30px;font-weight:950;color:#fff;letter-spacing:1px}
+.timerActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.timerActions button{padding:8px 10px;font-size:13px}
+.timerPresets{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.timerPresets button{padding:8px 10px}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.7</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.8</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -161,7 +184,21 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+</div>
+
+
+<div id="calendarView" class="card" style="display:none">
+  <button class="secondary backBtn" id="closeCalendar">← Zurück</button>
+  <h2>📅 Trainingskalender</h2>
+  <div class="calendarStats">
+    <div class="calendarStat"><b id="calWeek">0</b><span class="small">diese Woche</span></div>
+    <div class="calendarStat"><b id="calMonth">0</b><span class="small">diesen Monat</span></div>
+    <div class="calendarStat"><b id="calStreak">0</b><span class="small">Serie (Tage)</span></div>
+  </div>
+  <div class="calendarHead"><button class="secondary" id="calPrev">‹</button><div class="calendarTitle" id="calTitle"></div><button class="secondary" id="calNext">›</button></div>
+  <div class="calendarGrid" id="calendarGrid"></div>
+  <div id="calendarDayDetail" class="dayTraining small">Tippe auf einen markierten Trainingstag.</div>
 </div>
 
 <div id="aiAnalysis" class="card" style="display:none">
@@ -200,6 +237,12 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 <div id="deviceDetailHeader" style="display:none"><button class="secondary full" id="backToOverview">← Zur Übersicht</button></div><div id="deviceList"></div>
 <div class="card"><h2>Datensicherung</h2><div class="small">Die App speichert lokal auf deinem iPhone. Ein Backup schützt zusätzlich vor Datenverlust.</div><div class="actions"><button class="secondary" id="exportBtn">Backup exportieren</button><label class="filebtn secondary">Backup laden<input id="importFile" type="file" accept=".json" hidden></label></div></div>
+
+<div id="restTimer" class="timerBar">
+  <div class="timerTop"><div><b>⏱️ Satzpause</b><div class="small" id="timerLabel">Bereit für den nächsten Satz</div></div><div class="timerClock" id="timerClock">01:30</div></div>
+  <div class="timerActions"><button class="secondary" id="timerPlus">+30 Sek.</button><button class="secondary" id="timerRestart">Neu</button><button class="danger" id="timerSkip">Überspringen</button></div>
+</div>
+
 </main>
 <nav><div><button id="addNav">+ Gerät</button><button class="secondary" id="topNav">Übersicht</button></div></nav>
 <script>
@@ -214,6 +257,8 @@ let state={devices:[]};
 let currentView="home";
 let selectedDeviceId=null;
 let workout={active:false,index:0,deviceIds:[]};
+let timer={seconds:90,remaining:90,handle:null};
+let calCursor=new Date();
 
 const $=id=>document.getElementById(id);
 const n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v);
@@ -576,6 +621,7 @@ function hideAllViews(){
   $("deviceDetailHeader").style.display="none";
   $("workoutSession").style.display="none";
   $("aiAnalysis").style.display="none";
+  $("calendarView").style.display="none";
   if($("devicesOverview"))$("devicesOverview").style.display="none";
 }
 function showHome(){
@@ -619,6 +665,94 @@ function showEditDevice(id){
   $("formCard").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
 }
+
+function dateKey(v){
+  const d=new Date(v), y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function trainingDays(){
+  const map={};
+  state.devices.forEach(d=>(d.logs||[]).forEach(log=>{
+    const k=dateKey(log.date);
+    (map[k]||(map[k]=[])).push({device:d,log});
+  }));
+  return map;
+}
+function startOfWeek(d){
+  const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()), day=(x.getDay()+6)%7;
+  x.setDate(x.getDate()-day); return x;
+}
+function streakCount(map){
+  let d=new Date(); d.setHours(0,0,0,0);
+  if(!map[dateKey(d)])d.setDate(d.getDate()-1);
+  let c=0;
+  while(map[dateKey(d)]){c++;d.setDate(d.getDate()-1)}
+  return c;
+}
+function openCalendar(){
+  currentView="calendar"; workout.active=false; hideAllViews(); $("homeActions").style.display="none";
+  $("calendarView").style.display="block"; renderCalendar(); window.scrollTo({top:0,behavior:"smooth"});
+}
+function renderCalendar(){
+  const map=trainingDays(), now=new Date();
+  const ws=startOfWeek(now), we=new Date(ws); we.setDate(we.getDate()+7);
+  const week=new Set(), month=new Set();
+  Object.keys(map).forEach(k=>{
+    const d=new Date(k+"T12:00:00");
+    if(d>=ws&&d<we)week.add(k);
+    if(d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth())month.add(k);
+  });
+  $("calWeek").textContent=week.size; $("calMonth").textContent=month.size; $("calStreak").textContent=streakCount(map);
+  const y=calCursor.getFullYear(), mo=calCursor.getMonth();
+  $("calTitle").textContent=new Date(y,mo,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+  const dows=["Mo","Di","Mi","Do","Fr","Sa","So"];
+  let h=dows.map(x=>`<div class="calDow">${x}</div>`).join("");
+  const first=(new Date(y,mo,1).getDay()+6)%7, days=new Date(y,mo+1,0).getDate(), today=dateKey(now);
+  for(let i=0;i<first;i++)h+='<button class="calDay empty"></button>';
+  for(let day=1;day<=days;day++){
+    const k=`${y}-${String(mo+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    h+=`<button class="calDay ${map[k]?"trained ":""}${k===today?"today":""}" data-day="${k}">${day}</button>`;
+  }
+  $("calendarGrid").innerHTML=h;
+  $("calendarGrid").querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>showCalendarDay(b.dataset.day,map));
+}
+function showCalendarDay(k,map=trainingDays()){
+  $("calendarGrid").querySelectorAll(".calDay").forEach(x=>x.classList.toggle("selected",x.dataset.day===k));
+  const rows=map[k]||[];
+  const label=new Date(k+"T12:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
+  $("calendarDayDetail").innerHTML=rows.length
+    ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${fmt(x.log.weight)} kg</b> · ${repsText(x.log,x.device)} Wdh.`).join("<br>")}`
+    : `<b>${label}</b><br>Kein Training gespeichert.`;
+}
+function timerText(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
+function paintTimer(){
+  $("timerClock").textContent=timerText(Math.max(0,timer.remaining));
+  $("restTimer").style.display="block";
+}
+function startRestTimer(seconds=90,label="Bereit für den nächsten Satz"){
+  if(timer.handle)clearInterval(timer.handle);
+  timer.seconds=seconds; timer.remaining=seconds; $("timerLabel").textContent=label; paintTimer();
+  timer.handle=setInterval(()=>{
+    timer.remaining--; paintTimer();
+    if(timer.remaining<=0){
+      clearInterval(timer.handle);timer.handle=null;
+      $("timerLabel").textContent="Weiter geht’s 💪";
+      try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(e){}
+      try{
+        const A=window.AudioContext||window.webkitAudioContext,ctx=new A(),o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(ctx.currentTime+.22);
+      }catch(e){}
+    }
+  },1000);
+}
+function stopRestTimer(){if(timer.handle)clearInterval(timer.handle);timer.handle=null;$("restTimer").style.display="none"}
+function timerButtonsHtml(prefix){
+  return `<div class="timerPresets"><button class="secondary" data-rest="60">⏱ 60s</button><button class="secondary" data-rest="90">⏱ 90s</button><button class="secondary" data-rest="120">⏱ 120s</button><button class="secondary" data-rest="180">⏱ 180s</button></div>`;
+}
+function bindRestButtons(root=document){
+  root.querySelectorAll("[data-rest]").forEach(b=>b.onclick=()=>startRestTimer(Number(b.dataset.rest)));
+}
+
 function openOverview(){
   currentView="overview";
   selectedDeviceId=null;
@@ -707,6 +841,7 @@ async function showDevice(id){
     </div>
     <label>Wiederholungen je Satz</label>
     ${setInputsHtml("sr_"+d.id,d.sets,d.reps)}
+    <div class="small">Pausentimer starten:</div>${timerButtonsHtml("detail")}
     <button class="full" id="saveTraining">Training speichern</button>
 
     <div class="chartWrap">
@@ -729,6 +864,7 @@ async function showDevice(id){
   $("editDevice").onclick=()=>showEditDevice(d.id);
   $("deleteDevice").onclick=()=>deleteDevice(d.id);
   $("photoInput").onchange=e=>savePhoto(e,d.id);
+  bindRestButtons($("deviceList"));
 
   if(d.logs.length)requestAnimationFrame(()=>drawChart($("progressChart"),d.logs));
 
@@ -872,6 +1008,7 @@ function showWorkoutStep(){
     </div>
     <label style="color:#d1d5db">Wiederholungen je Satz</label>
     ${setInputsHtml("woRep",d.sets,d.reps)}
+    <div class="small">Pausentimer starten:</div>${timerButtonsHtml("workout")}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
       <button class="secondary" id="woSkip">Überspringen</button>
@@ -880,6 +1017,7 @@ function showWorkoutStep(){
   </div>`;
 
   $("woMuscles").onclick=()=>openMuscles(d.id,"workout");
+  bindRestButtons($("workoutSession"));
   $("woSave").onclick=()=>{
     const w=n($("woWeight").value,d.weight);
     const s=d.sets;
@@ -930,6 +1068,15 @@ $("devicesStat").onkeydown=e=>{
 $("startWorkoutBtn").onclick=startWorkout;
 $("muscleClose").onclick=closeMuscles;
 $("muscleCloseTop").onclick=closeMuscles;
+
+$("calendarBtn").onclick=openCalendar;
+$("closeCalendar").onclick=showHome;
+$("calPrev").onclick=()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()-1,1);renderCalendar()};
+$("calNext").onclick=()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()+1,1);renderCalendar()};
+$("timerPlus").onclick=()=>{timer.remaining+=30;paintTimer()};
+$("timerRestart").onclick=()=>startRestTimer(timer.seconds);
+$("timerSkip").onclick=stopRestTimer;
+
 $("aiAnalysisBtn").onclick=openAiAnalysis;
 $("openChatGPTBtn").onclick=openChatGPT;
 $("copyAnalysisBtn").onclick=copyAnalysisText;
