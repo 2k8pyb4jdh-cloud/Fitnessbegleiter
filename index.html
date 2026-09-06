@@ -180,12 +180,20 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #calendarView .dayTraining{background:#f3f4f6;border-color:#d1d5db;color:#111}
 #calendarView button.secondary{background:#e5e7eb;color:#111;border-color:#cbd5e1}
 
+
+/* v4.9 – Trainingsplanung */
+.planCard{background:#fff;color:#111;border:1px solid #d1d5db;border-radius:16px;padding:14px;margin:12px 0}
+.planCard h3{margin:0 0 5px;color:#111}.planDevice{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #e5e7eb}.planDevice:last-child{border-bottom:0}
+.planReason{font-size:12px;color:#4b5563;margin-top:2px}.planBadge{white-space:nowrap;background:#dcfce7;color:#14532d;border:1px solid #86efac;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900}.planWarn{background:#fef3c7;color:#78350f;border-color:#fcd34d}
+#calendarView .plannedDay{background:#ecfdf5;color:#111;border:2px dashed #22c55e}#calendarView .plannedDay.trained{background:#22c55e;border-style:solid}
+.planActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.8.1</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.9</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -199,7 +207,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
 </div>
 
 
@@ -646,6 +654,7 @@ function showHome(){
   hideAllViews();
   $("homeActions").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
+  renderNextPlan();
 }
 function showAddDevice(){
   currentView="add";
@@ -681,6 +690,27 @@ function showEditDevice(id){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+
+const TRAIN_DAYS=[2,5,0]; // Dienstag, Freitag, Sonntag
+function dayOnly(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function nextTrainingDate(from=new Date(),includeToday=true){
+  const base=dayOnly(from);
+  for(let i=includeToday?0:1;i<8;i++){const d=new Date(base);d.setDate(base.getDate()+i);if(TRAIN_DAYS.includes(d.getDay()))return d}
+  return base;
+}
+function lastLogDate(d){if(!d.logs||!d.logs.length)return null;return d.logs.reduce((best,l)=>{const x=new Date(l.date);return !best||x>best?x:best},null)}
+function recentUseCount(d,days=21){const cut=new Date();cut.setDate(cut.getDate()-days);return (d.logs||[]).filter(l=>new Date(l.date)>=cut).length}
+function devicePlanScore(d){const last=lastLogDate(d),now=new Date(),gap=last?Math.floor((dayOnly(now)-dayOnly(last))/86400000):999;return gap*10-recentUseCount(d,21)*8}
+function plannedDevices(date){const devs=[...state.devices];devs.sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));return devs.slice(0,Math.min(5,devs.length))}
+function planReason(d){const last=lastLogDate(d);if(!last)return "Noch kein Training gespeichert";const gap=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));if(gap>=14)return `Priorität: seit ${gap} Tagen nicht trainiert`;if(gap>=8)return `Seit ${gap} Tagen nicht trainiert`;return `Zuletzt vor ${gap} Tagen · ${recentUseCount(d,21)}× in 3 Wochen`}
+function renderNextPlan(){
+  if(!$("nextPlanCard"))return;
+  if(!state.devices.length){$("nextPlanSummary").textContent="Noch keine Geräte vorhanden.";$("nextPlanDevices").innerHTML="";return}
+  const d=nextTrainingDate(new Date(),true),items=plannedDevices(d);
+  $("nextPlanSummary").innerHTML=`<b>${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit"})}</b> · ${items.length} vorgeschlagene Geräte`;
+  $("nextPlanDevices").innerHTML=items.map(x=>{const last=lastLogDate(x),gap=last?Math.floor((dayOnly(new Date())-dayOnly(last))/86400000):999;return `<div class="planDevice"><div><b>${esc(x.name)}</b><div class="planReason">${planReason(x)}</div></div><span class="planBadge ${gap>=14?"planWarn":""}">${gap===999?"NEU":gap+" Tage"}</span></div>`}).join("");
+}
+function plannedForKey(k){const d=new Date(k+"T12:00:00");return TRAIN_DAYS.includes(d.getDay())&&d>=dayOnly(new Date())}
 function dateKey(v){
   const d=new Date(v), y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
@@ -726,7 +756,7 @@ function renderCalendar(){
   for(let i=0;i<first;i++)h+='<button class="calDay empty"></button>';
   for(let day=1;day<=days;day++){
     const k=`${y}-${String(mo+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    h+=`<button class="calDay ${map[k]?"trained ":""}${k===today?"today":""}" data-day="${k}">${day}</button>`;
+    h+=`<button class="calDay ${map[k]?"trained ":""}${plannedForKey(k)?"plannedDay ":""}${k===today?"today":""}" data-day="${k}">${day}</button>`;
   }
   $("calendarGrid").innerHTML=h;
   $("calendarGrid").querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>showCalendarDay(b.dataset.day,map));
@@ -737,7 +767,7 @@ function showCalendarDay(k,map=trainingDays()){
   const label=new Date(k+"T12:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
   $("calendarDayDetail").innerHTML=rows.length
     ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${fmt(x.log.weight)} kg</b> · ${repsText(x.log,x.device)} Wdh.`).join("<br>")}`
-    : `<b>${label}</b><br>Kein Training gespeichert.`;
+    : plannedForKey(k) ? `<b>${label}</b><br><b>Geplanter Trainingstag</b><br>${plannedDevices(new Date(k+"T12:00:00")).map(x=>`• ${esc(x.name)} <span class="planReason">(${planReason(x)})</span>`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
 }
 function timerText(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
 function paintTimer(){
@@ -1084,6 +1114,7 @@ $("startWorkoutBtn").onclick=startWorkout;
 $("muscleClose").onclick=closeMuscles;
 $("muscleCloseTop").onclick=closeMuscles;
 
+$("openPlanCalendar").onclick=()=>{const d=nextTrainingDate(new Date(),true);calCursor=new Date(d.getFullYear(),d.getMonth(),1);openCalendar();setTimeout(()=>showCalendarDay(dateKey(d)),0)};
 $("calendarBtn").onclick=openCalendar;
 $("closeCalendar").onclick=showHome;
 $("calPrev").onclick=()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()-1,1);renderCalendar()};
