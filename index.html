@@ -198,12 +198,13 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .planDone{padding:14px 4px;text-align:center;font-weight:900;color:#166534}
 .planHint{font-size:12px;color:#4b5563;margin-top:6px}
 
+.splitTag{display:inline-block;margin-top:6px;padding:5px 9px;border-radius:999px;background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;font-size:12px;font-weight:900}
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.10</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.11</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -293,7 +294,7 @@ let workout={active:false,index:0,deviceIds:[]};
 let timer={seconds:90,remaining:90,handle:null};
 let calCursor=new Date();
 let planEntryMode=false;
-const PLAN_KEY="fitnessbegleiter_plan_v1";
+const PLAN_KEY="fitnessbegleiter_plan_v2";
 
 const $=id=>document.getElementById(id);
 const n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v);
@@ -718,12 +719,10 @@ function getTodayPlanSession(){
   const today=dateKey(new Date());
   if(!isTrainingDay(new Date()))return null;
   let p=loadPlanSession();
-  if(!p || p.date!==today){
-    p={date:today,deviceIds:plannedDevices(new Date()).map(d=>d.id),completed:[],createdAt:new Date().toISOString()};
-    savePlanSession(p);
-  }
+  if(!p||p.date!==today)p={date:today,deviceIds:plannedDevices(new Date()).map(d=>d.id),completed:[],createdAt:new Date().toISOString()};
   p.deviceIds=p.deviceIds.filter(id=>state.devices.some(d=>d.id===id));
-  p.completed=(p.completed||[]).filter(id=>p.deviceIds.includes(id));
+  const doneFromLogs=state.devices.filter(d=>(d.logs||[]).some(l=>dateKey(l.date)===today)).map(d=>d.id);
+  p.completed=[...new Set([...(p.completed||[]),...doneFromLogs])].filter(id=>p.deviceIds.includes(id));
   savePlanSession(p);
   return p;
 }
@@ -746,8 +745,43 @@ function nextTrainingDate(from=new Date(),includeToday=true){
 }
 function lastLogDate(d){if(!d.logs||!d.logs.length)return null;return d.logs.reduce((best,l)=>{const x=new Date(l.date);return !best||x>best?x:best},null)}
 function recentUseCount(d,days=21){const cut=new Date();cut.setDate(cut.getDate()-days);return (d.logs||[]).filter(l=>new Date(l.date)>=cut).length}
-function devicePlanScore(d){const last=lastLogDate(d),now=new Date(),gap=last?Math.floor((dayOnly(now)-dayOnly(last))/86400000):999;return gap*10-recentUseCount(d,21)*8}
-function plannedDevices(date){const devs=[...state.devices];devs.sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));return devs.slice(0,Math.min(5,devs.length))}
+
+function devicePlanScore(d){
+  const last=lastLogDate(d),now=new Date();
+  const gap=last?Math.floor((dayOnly(now)-dayOnly(last))/86400000):999;
+  return gap*10-recentUseCount(d,21)*8;
+}
+function normName(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+function deviceSplit(d){
+  const n=normName(d.name),m=normName(d.muscle);
+  if(/leg|bein|hip adduk|hip abduk|glute|curl/.test(n)||/bein|oberschenkel|po/.test(m))return "legs";
+  if(/fulldown|pulldown|lat|roman chair|t-bar|row|rear delt|reverse fly|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
+  if(/trizeps|bizeps|incline|chest|shoulder|press|brust/.test(n)||/arm|brust|schulter/.test(m))return "upper";
+  return "other";
+}
+function splitForDate(date){
+  if(date.getDay()===2)return {key:"upper",label:"Oberkörper · Brust, Schulter & Arme"};
+  if(date.getDay()===5)return {key:"legs",label:"Beine & Po"};
+  return {key:"back",label:"Rücken & hintere Schulter"};
+}
+function plannedDevices(date){
+  const split=splitForDate(date),all=[...state.devices];
+  let primary=all.filter(d=>deviceSplit(d)===split.key).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
+  let chosen=primary.slice(0,5);
+  const overdue=all.filter(d=>deviceSplit(d)!==split.key).filter(d=>{
+    const last=lastLogDate(d);
+    return !last || Math.floor((dayOnly(new Date())-dayOnly(last))/86400000)>=14;
+  }).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
+  if(overdue.length){
+    if(chosen.length<5)chosen.push(overdue[0]);
+    else if(chosen.length)chosen[chosen.length-1]=overdue[0];
+  }
+  if(chosen.length<5){
+    const rest=all.filter(d=>!chosen.some(x=>x.id===d.id)).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
+    chosen.push(...rest.slice(0,5-chosen.length));
+  }
+  return chosen.slice(0,5);
+}
 function planReason(d){const last=lastLogDate(d);if(!last)return "Noch kein Training gespeichert";const gap=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));if(gap>=14)return `Priorität: seit ${gap} Tagen nicht trainiert`;if(gap>=8)return `Seit ${gap} Tagen nicht trainiert`;return `Zuletzt vor ${gap} Tagen · ${recentUseCount(d,21)}× in 3 Wochen`}
 function renderNextPlan(){
   if(!$("nextPlanCard"))return;
@@ -769,8 +803,10 @@ function renderNextPlan(){
     const done=items.length-remaining.length;
     const pct=items.length?Math.round(done/items.length*100):0;
 
+    const split=splitForDate(d);
     $("nextPlanSummary").innerHTML=
       `<b>Heute · ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit"})}</b>`+
+      `<div class="splitTag">${split.label}</div>`+
       `<div class="planProgress"><span style="width:${pct}%"></span></div>`+
       `<div class="planHint">${done} von ${items.length} Geräten erledigt · Tippe auf das nächste Gerät.</div>`;
 
@@ -796,8 +832,10 @@ function renderNextPlan(){
     });
   }else{
     items=plannedDevices(d);
+    const split=splitForDate(d);
     $("nextPlanSummary").innerHTML=
       `<b>${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit"})}</b> · ${items.length} vorgeschlagene Geräte`+
+      `<div class="splitTag">${split.label}</div>`+
       `<div class="planHint">Vorschau. Am Trainingstag kannst du die Geräte hier direkt nacheinander abarbeiten.</div>`;
 
     $("nextPlanDevices").innerHTML=items.map(x=>{
@@ -866,7 +904,7 @@ function showCalendarDay(k,map=trainingDays()){
   const label=new Date(k+"T12:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
   $("calendarDayDetail").innerHTML=rows.length
     ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${fmt(x.log.weight)} kg</b> · ${repsText(x.log,x.device)} Wdh.`).join("<br>")}`
-    : plannedForKey(k) ? `<b>${label}</b><br><b>Geplanter Trainingstag</b><br>${plannedDevices(new Date(k+"T12:00:00")).map(x=>`• ${esc(x.name)} <span class="planReason">(${planReason(x)})</span>`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
+    : plannedForKey(k) ? `<b>${label}</b><br><b>Geplanter Trainingstag</b><br><span class="splitTag">${splitForDate(new Date(k+"T12:00:00")).label}</span><br><br>${plannedDevices(new Date(k+"T12:00:00")).map(x=>`• ${esc(x.name)} <span class="planReason">(${planReason(x)})</span>`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
 }
 function timerText(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
 function paintTimer(){
