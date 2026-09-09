@@ -204,7 +204,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v4.11</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -294,7 +294,7 @@ let workout={active:false,index:0,deviceIds:[]};
 let timer={seconds:90,remaining:90,handle:null};
 let calCursor=new Date();
 let planEntryMode=false;
-const PLAN_KEY="fitnessbegleiter_plan_v2";
+const PLAN_KEY="fitnessbegleiter_plan_v3";
 
 const $=id=>document.getElementById(id);
 const n=(v,d)=>isNaN(parseFloat(v))?d:parseFloat(v);
@@ -767,20 +767,20 @@ function splitForDate(date){
 function plannedDevices(date){
   const split=splitForDate(date),all=[...state.devices];
   let primary=all.filter(d=>deviceSplit(d)===split.key).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
-  let chosen=primary.slice(0,5);
+  let chosen=primary.slice(0,7);
   const overdue=all.filter(d=>deviceSplit(d)!==split.key).filter(d=>{
     const last=lastLogDate(d);
     return !last || Math.floor((dayOnly(new Date())-dayOnly(last))/86400000)>=14;
   }).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
   if(overdue.length){
-    if(chosen.length<5)chosen.push(overdue[0]);
+    if(chosen.length<7)chosen.push(overdue[0]);
     else if(chosen.length)chosen[chosen.length-1]=overdue[0];
   }
-  if(chosen.length<5){
+  if(chosen.length<7){
     const rest=all.filter(d=>!chosen.some(x=>x.id===d.id)).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
-    chosen.push(...rest.slice(0,5-chosen.length));
+    chosen.push(...rest.slice(0,7-chosen.length));
   }
-  return chosen.slice(0,5);
+  return chosen.slice(0,7);
 }
 function planReason(d){const last=lastLogDate(d);if(!last)return "Noch kein Training gespeichert";const gap=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));if(gap>=14)return `Priorität: seit ${gap} Tagen nicht trainiert`;if(gap>=8)return `Seit ${gap} Tagen nicht trainiert`;return `Zuletzt vor ${gap} Tagen · ${recentUseCount(d,21)}× in 3 Wochen`}
 function renderNextPlan(){
