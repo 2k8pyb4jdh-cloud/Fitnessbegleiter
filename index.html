@@ -204,7 +204,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.1</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -398,19 +398,44 @@ function repsArray(log,d){
   const reps=Number(log?.reps)||Number(d?.reps)||0;
   return Array.from({length:sets},()=>reps);
 }
-function repsText(log,d){
-  return repsArray(log,d).join(" / ");
+function setWeightsArray(log,d){
+  const reps=repsArray(log,d);
+  if(Array.isArray(log?.setWeights)&&log.setWeights.length)
+    return reps.map((_,i)=>Number(log.setWeights[i]??log.weight??d?.weight)||0);
+  return reps.map(()=>Number(log?.weight??d?.weight)||0);
 }
-function setInputsHtml(prefix,sets,target,values){
+function repsText(log,d){ return repsArray(log,d).join(" / "); }
+function setDetailText(log,d){
+  const reps=repsArray(log,d), weights=setWeightsArray(log,d);
+  return reps.map((r,i)=>`${fmt(weights[i])} kg × ${r}`).join(" · ");
+}
+function topSetWeight(log,d){
+  return Math.max(...setWeightsArray(log,d),0);
+}
+function topSetReps(log,d){
+  const weights=setWeightsArray(log,d), reps=repsArray(log,d);
+  const top=Math.max(...weights,0);
+  let best=0;
+  weights.forEach((w,i)=>{if(w===top)best=Math.max(best,Number(reps[i])||0)});
+  return best;
+}
+function setInputsHtml(prefix,sets,target,values,weightPrefix,weights,defaultWeight){
   const count=Math.max(1,Number(sets)||1);
-  const arr=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>target);
+  const reps=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>target);
+  const ws=Array.isArray(weights)&&weights.length?weights:Array.from({length:count},()=>defaultWeight);
   return `<div class="setRepGrid">${Array.from({length:count},(_,i)=>`
     <div>
-      <label>Satz ${i+1}</label>
-      <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${Number(arr[i]??target)||0}">
+      <label>Satz ${i+1} · Gewicht (kg)</label>
+      <input id="${weightPrefix}_${i}" type="number" inputmode="decimal" step=".5" min="0" value="${Number(ws[i]??defaultWeight)||0}">
+      <label style="margin-top:6px">Wiederholungen</label>
+      <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${Number(reps[i]??target)||0}">
     </div>`).join("")}</div>`;
 }
 function readSetReps(prefix,sets,target){
+  const count=Math.max(1,Number(sets)||1);
+  return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
+}
+function readSetWeights(prefix,sets,target){
   const count=Math.max(1,Number(sets)||1);
   return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
 }
@@ -420,7 +445,7 @@ function buildAnalysisPrompt(){
     "Du bist mein persönlicher Trainingsanalyst.",
     "Analysiere meine Trainingsdaten sachlich und konkret.",
     "Bewerte Fortschritt, Plateaus, sinnvolle Gewichtserhöhungen, Rückschritte, Trainingshäufigkeit und auffällige Unterschiede zwischen Übungen.",
-    "Berücksichtige ausdrücklich die Wiederholungen JEDES einzelnen Satzes. Wenn z. B. 12/12/8 erreicht wurden, behandle das nicht wie 3x12.",
+    "Berücksichtige ausdrücklich Gewicht UND Wiederholungen JEDES einzelnen Satzes. Ein Aufwärmsatz mit weniger Gewicht darf nicht wie ein Arbeitssatz mit dem Topgewicht bewertet werden.",
     "Gib für jedes Gerät eine kurze Bewertung und eine konkrete Empfehlung für das nächste Training.",
     "Am Ende möchte ich eine kompakte Gesamtbewertung mit 3 Prioritäten.",
     "",
@@ -438,7 +463,7 @@ function buildAnalysisPrompt(){
     }else{
       d.logs.slice(0,20).forEach(log=>{
         const date=new Date(log.date).toLocaleDateString("de-DE");
-        lines.push(`${date}: ${fmt(log.weight)} kg | Sätze: ${repsText(log,d)} Wdh.`);
+        lines.push(`${date}: Sätze: ${setDetailText(log,d)} | Topgewicht: ${fmt(topSetWeight(log,d))} kg`);
       });
     }
     lines.push("");
@@ -480,15 +505,12 @@ let muscleReturn="detail";
 
 function progressionAdvice(d){
   if(!d.logs?.length) return {good:false,title:`Startgewicht: ${fmt(d.weight)} kg`,text:"Noch keine Trainingseinheit gespeichert. Erst einmal sauber trainieren und alle Sätze erfassen."};
-  const targetSets=Math.max(1,Number(d.sets)||1), targetReps=Math.max(1,Number(d.reps)||1);
-  const last=d.logs[0], reps=repsArray(last,d).slice(0,targetSets);
-  const complete=reps.length===targetSets && reps.every(v=>v>=targetReps);
-  const step=Number(d.step)||0;
-  if(complete && step>0){
-    const next=Number(last.weight)+step;
-    return {good:true,title:`📈 ${fmt(next)} kg testen`,text:`Letzte Einheit: ${reps.join(" / ")} Wdh. Dein Ziel ${targetSets}×${targetReps} wurde erreicht. Beim nächsten Training kannst du den nächsten Gewichtsschritt versuchen.`};
+  const targetReps=Math.max(1,Number(d.reps)||1), last=d.logs[0];
+  const top=topSetWeight(last,d), topReps=topSetReps(last,d), step=Number(d.step)||0;
+  if(topReps>=targetReps && step>0){
+    return {good:true,title:`📈 Top-Satz mit ${fmt(top+step)} kg testen`,text:`Letzte Einheit: ${setDetailText(last,d)}. Dein schwerster Satz mit ${fmt(top)} kg hatte ${topReps} Wdh. und erreichte das Ziel von ${targetReps}.`};
   }
-  return {good:false,title:`➡️ ${fmt(last.weight)} kg halten`,text:`Letzte Einheit: ${reps.join(" / ")} Wdh. Das Ziel ${targetSets}×${targetReps} ist noch nicht vollständig erreicht. Erst alle Sätze stabilisieren, dann steigern.`};
+  return {good:false,title:`➡️ Topgewicht ${fmt(top)} kg halten`,text:`Letzte Einheit: ${setDetailText(last,d)}. Beim schwersten Satz wurden ${topReps} von ${targetReps} Ziel-Wiederholungen erreicht.`};
 }
 function adviceHtml(d){
   const a=progressionAdvice(d);
@@ -618,7 +640,7 @@ function closeMuscles(){
 }
 
 function bestWeight(d){
-  const vals=[Number(d.weight)||0,...(d.logs||[]).map(x=>Number(x.weight)||0)];
+  const vals=[Number(d.weight)||0,...(d.logs||[]).map(x=>topSetWeight(x,d))];
   return Math.max(...vals);
 }
 function drawChart(canvas,logs){
@@ -633,7 +655,7 @@ function drawChart(canvas,logs){
   ctx.clearRect(0,0,w,h);
 
   const data=[...logs].reverse().slice(-12);
-  const vals=data.map(x=>Number(x.weight)||0);
+  const vals=data.map(x=>topSetWeight(x,{weight:x.weight}));
   const min=Math.min(...vals),max=Math.max(...vals);
   const range=Math.max(1,max-min);
 
@@ -903,7 +925,7 @@ function showCalendarDay(k,map=trainingDays()){
   const rows=map[k]||[];
   const label=new Date(k+"T12:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
   $("calendarDayDetail").innerHTML=rows.length
-    ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${fmt(x.log.weight)} kg</b> · ${repsText(x.log,x.device)} Wdh.`).join("<br>")}`
+    ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${setDetailText(x.log,x.device)}</b>`).join("<br>")}`
     : plannedForKey(k) ? `<b>${label}</b><br><b>Geplanter Trainingstag</b><br><span class="splitTag">${splitForDate(new Date(k+"T12:00:00")).label}</span><br><br>${plannedDevices(new Date(k+"T12:00:00")).map(x=>`• ${esc(x.name)} <span class="planReason">(${planReason(x)})</span>`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
 }
 function timerText(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
@@ -953,7 +975,7 @@ function openOverview(){
     ? state.devices.map(d=>{
         const last=(d.logs||[])[0];
         const lastText=last
-          ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · ${fmt(last.weight)} kg`
+          ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · Top ${fmt(topSetWeight(last,d))} kg`
           : "Noch kein Training";
         return `<div class="summaryRow" data-device="${d.id}">
           <div>
@@ -993,7 +1015,7 @@ async function showDevice(id){
       : `Gewicht halten: ${fmt(d.weight)} kg`;
 
   const hist=d.logs.length
-    ? d.logs.map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${fmt(x.weight)} kg</b> · ${repsText(x,d)} Wdh.`).join("<br>")
+    ? d.logs.map(x=>`${new Date(x.date).toLocaleDateString("de-DE")}: <b>${setDetailText(x,d)}</b>`).join("<br>")
     : "Noch kein Training gespeichert.";
 
   $("deviceList").innerHTML=`<div class="card" id="device_${d.id}">
@@ -1015,16 +1037,16 @@ async function showDevice(id){
     <h2 style="margin-top:18px">Training eintragen</h2>
     <div class="grid">
       <div>
-        <label>Trainiertes Gewicht (kg)</label>
-        <input id="w_${d.id}" type="number" inputmode="decimal" step=".5" value="${d.weight}">
-      </div>
-      <div>
         <label>Sätze</label>
         <input id="s_${d.id}" type="number" inputmode="numeric" value="${d.sets}" readonly>
       </div>
+      <div>
+        <label>Ziel-Wiederholungen</label>
+        <input type="number" value="${d.reps}" readonly>
+      </div>
     </div>
-    <label>Wiederholungen je Satz</label>
-    ${setInputsHtml("sr_"+d.id,d.sets,d.reps)}
+    <label>Gewicht & Wiederholungen je Satz</label>
+    ${setInputsHtml("sr_"+d.id,d.sets,d.reps,null,"sw_"+d.id,null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("detail")}
     <button class="full" id="saveTraining">Training speichern</button>
 
@@ -1101,21 +1123,23 @@ function saveDevice(){
 function saveTraining(id){
   const d=state.devices.find(x=>x.id===id);
   if(!d)return;
-  const w=n($("w_"+id).value,d.weight);
   const s=d.sets;
   const setReps=readSetReps("sr_"+id,s,d.reps);
+  const setWeights=readSetWeights("sw_"+id,s,d.weight);
   const r=Math.min(...setReps);
   const old=d.weight;
+  const top=Math.max(...setWeights,0);
 
-  d.weight=w;
+  d.weight=top;
   d.logs.unshift({
     date:new Date().toISOString(),
-    weight:w,
+    weight:top,
     sets:s,
     reps:r,
     setReps:setReps,
-    success:setReps.length===Number(d.sets)&&setReps.every(x=>x>=Number(d.reps)),
-    up:w>old
+    setWeights:setWeights,
+    success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
+    up:top>old
   });
 
   if(persist()){
@@ -1188,17 +1212,17 @@ function showWorkoutStep(){
     </div>
 
     <div class="small" style="margin-top:10px">
-      ${last?`Letztes Training: ${fmt(last.weight)} kg · ${repsText(last,d)} Wdh.`:"Noch kein Training gespeichert."}
+      ${last?`Letztes Training: ${setDetailText(last,d)}`:"Noch kein Training gespeichert."}
     </div>
     ${adviceHtml(d)}
     <button class="muscleBtn" id="woMuscles">🧍 Muskeln anzeigen</button>
 
     <div class="grid" style="margin-top:14px">
-      <div><label style="color:#d1d5db">Gewicht</label><input id="woWeight" type="number" step=".5" value="${d.weight}"></div>
       <div><label style="color:#d1d5db">Sätze</label><input type="number" value="${d.sets}" readonly></div>
+      <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${d.reps}" readonly></div>
     </div>
-    <label style="color:#d1d5db">Wiederholungen je Satz</label>
-    ${setInputsHtml("woRep",d.sets,d.reps)}
+    <label style="color:#d1d5db">Gewicht & Wiederholungen je Satz</label>
+    ${setInputsHtml("woRep",d.sets,d.reps,null,"woWeight",null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("workout")}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
@@ -1210,20 +1234,22 @@ function showWorkoutStep(){
   $("woMuscles").onclick=()=>openMuscles(d.id,"workout");
   bindRestButtons($("workoutSession"));
   $("woSave").onclick=()=>{
-    const w=n($("woWeight").value,d.weight);
     const s=d.sets;
     const setReps=readSetReps("woRep",s,d.reps);
+    const setWeights=readSetWeights("woWeight",s,d.weight);
     const r=Math.min(...setReps);
     const old=d.weight;
-    d.weight=w;
+    const top=Math.max(...setWeights,0);
+    d.weight=top;
     d.logs.unshift({
       date:new Date().toISOString(),
-      weight:w,
+      weight:top,
       sets:s,
       reps:r,
       setReps:setReps,
-      success:setReps.length===Number(d.sets)&&setReps.every(x=>x>=Number(d.reps)),
-      up:w>old
+      setWeights:setWeights,
+      success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
+      up:top>old
     });
     persist();
     workout.index++;
