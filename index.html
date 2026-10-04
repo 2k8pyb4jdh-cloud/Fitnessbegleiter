@@ -199,12 +199,20 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .planHint{font-size:12px;color:#4b5563;margin-top:6px}
 
 .splitTag{display:inline-block;margin-top:6px;padding:5px 9px;border-radius:999px;background:#e0f2fe;color:#0c4a6e;border:1px solid #7dd3fc;font-size:12px;font-weight:900}
+
+.hiddenFolder{margin-top:14px;border:1px solid #d1d5db;border-radius:14px;background:#f8fafc;overflow:hidden}
+.hiddenFolder>summary{cursor:pointer;list-style:none;padding:14px 16px;font-weight:900;display:flex;justify-content:space-between;align-items:center;color:#475569}
+.hiddenFolder>summary::-webkit-details-marker{display:none}
+.hiddenFolder>summary b{font-size:12px;background:#e2e8f0;border-radius:999px;padding:3px 8px}
+.hiddenFolderBody{padding:0 10px 10px}
+.hiddenFolderBody .summaryRow{background:#fff;opacity:.82}
+
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.2</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.3</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -995,21 +1003,29 @@ function openOverview(){
   $("ovLogs").textContent=logs;
   $("ovUps").textContent=ups;
 
-  const overviewDevices=[...state.devices].sort((a,b)=>Number(isHiddenDevice(a))-Number(isHiddenDevice(b)));
-  $("overviewSummary").innerHTML=overviewDevices.length
-    ? overviewDevices.map(d=>{
-        const last=(d.logs||[])[0];
-        const lastText=last
-          ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · Top ${fmt(topSetWeight(last,d))} kg`
-          : "Noch kein Training";
-        return `<div class="summaryRow" data-device="${d.id}">
-          <div>
-            <div class="summaryName">${esc(d.name)}${isHiddenDevice(d)?' <span style="font-size:11px;opacity:.65">🙈 ausgeblendet</span>':''}</div>
-            <div class="summaryMeta">${esc(d.muscle)} · ${lastText}${isHiddenDevice(d)?' · nicht im Trainingsplan':''}</div>
-          </div>
-          <div class="summaryWeight">${fmt(d.weight)} kg ›</div>
-        </div>`;
-      }).join("")
+  const activeOverview=state.devices.filter(d=>!isHiddenDevice(d));
+  const hiddenOverview=state.devices.filter(d=>isHiddenDevice(d));
+  const overviewRow=d=>{
+    const last=(d.logs||[])[0];
+    const lastText=last
+      ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · Top ${fmt(topSetWeight(last,d))} kg`
+      : "Noch kein Training";
+    return `<div class="summaryRow" data-device="${d.id}">
+      <div>
+        <div class="summaryName">${esc(d.name)}</div>
+        <div class="summaryMeta">${esc(d.muscle)} · ${lastText}</div>
+      </div>
+      <div class="summaryWeight">${fmt(d.weight)} kg ›</div>
+    </div>`;
+  };
+  $("overviewSummary").innerHTML=state.devices.length
+    ? activeOverview.map(overviewRow).join("")+
+      (hiddenOverview.length
+        ? `<details class="hiddenFolder">
+            <summary><span>🙈 Ausgeblendet</span><b>${hiddenOverview.length}</b></summary>
+            <div class="hiddenFolderBody">${hiddenOverview.map(overviewRow).join("")}</div>
+          </details>`
+        : "")
     : '<div class="small">Noch keine Geräte angelegt.</div>';
 
   $("overviewSummary").querySelectorAll("[data-device]").forEach(el=>{
