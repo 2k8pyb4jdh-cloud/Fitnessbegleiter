@@ -204,7 +204,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.1</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.2</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -360,6 +360,21 @@ async function migrateLegacyPhotos(){
     try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
   }
 }
+function applyV52HiddenMigration(){
+  const mk="fitnessbegleiter_v52_hidden_migration";
+  if(localStorage.getItem(mk))return;
+  let changed=false;
+  state.devices.forEach(d=>{
+    const n=String(d.name||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+    const match=n==="chest press vertical" || n==="incline press" || n==="incline press maschine" ||
+                n==="t-bar-row" || n==="t bar row" || n==="t-bar row";
+    if(match){d.hidden=true;changed=true}
+  });
+  if(changed)persist();
+  localStorage.setItem(mk,"1");
+  localStorage.removeItem(PLAN_KEY);
+}
+
 async function load(){
   try{
     const raw=localStorage.getItem(KEY);
@@ -370,6 +385,7 @@ async function load(){
     if(typeof d.hasPhoto!=="boolean")d.hasPhoto=!!d.photo;
   }
   await migrateLegacyPhotos();
+  applyV52HiddenMigration();
   renderStats();
   showHome();
 }
@@ -742,7 +758,7 @@ function getTodayPlanSession(){
   if(!isTrainingDay(new Date()))return null;
   let p=loadPlanSession();
   if(!p||p.date!==today)p={date:today,deviceIds:plannedDevices(new Date()).map(d=>d.id),completed:[],createdAt:new Date().toISOString()};
-  p.deviceIds=p.deviceIds.filter(id=>state.devices.some(d=>d.id===id));
+  p.deviceIds=p.deviceIds.filter(id=>state.devices.some(d=>d.id===id&&!isHiddenDevice(d)));
   const doneFromLogs=state.devices.filter(d=>(d.logs||[]).some(l=>dateKey(l.date)===today)).map(d=>d.id);
   p.completed=[...new Set([...(p.completed||[]),...doneFromLogs])].filter(id=>p.deviceIds.includes(id));
   savePlanSession(p);
@@ -786,8 +802,16 @@ function splitForDate(date){
   if(date.getDay()===5)return {key:"legs",label:"Beine & Po"};
   return {key:"back",label:"Rücken & hintere Schulter"};
 }
+function isHiddenDevice(d){return d?.hidden===true}
+function activeDevices(){return state.devices.filter(d=>!isHiddenDevice(d))}
+function toggleDeviceHidden(id){
+  const d=state.devices.find(x=>x.id===id); if(!d)return;
+  d.hidden=!d.hidden;
+  localStorage.removeItem(PLAN_KEY);
+  if(persist()) openOverview();
+}
 function plannedDevices(date){
-  const split=splitForDate(date),all=[...state.devices];
+  const split=splitForDate(date),all=activeDevices();
   let primary=all.filter(d=>deviceSplit(d)===split.key).sort((a,b)=>devicePlanScore(b)-devicePlanScore(a));
   let chosen=primary.slice(0,7);
   const overdue=all.filter(d=>deviceSplit(d)!==split.key).filter(d=>{
@@ -971,16 +995,17 @@ function openOverview(){
   $("ovLogs").textContent=logs;
   $("ovUps").textContent=ups;
 
-  $("overviewSummary").innerHTML=state.devices.length
-    ? state.devices.map(d=>{
+  const overviewDevices=[...state.devices].sort((a,b)=>Number(isHiddenDevice(a))-Number(isHiddenDevice(b)));
+  $("overviewSummary").innerHTML=overviewDevices.length
+    ? overviewDevices.map(d=>{
         const last=(d.logs||[])[0];
         const lastText=last
           ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · Top ${fmt(topSetWeight(last,d))} kg`
           : "Noch kein Training";
         return `<div class="summaryRow" data-device="${d.id}">
           <div>
-            <div class="summaryName">${esc(d.name)}</div>
-            <div class="summaryMeta">${esc(d.muscle)} · ${lastText}</div>
+            <div class="summaryName">${esc(d.name)}${isHiddenDevice(d)?' <span style="font-size:11px;opacity:.65">🙈 ausgeblendet</span>':''}</div>
+            <div class="summaryMeta">${esc(d.muscle)} · ${lastText}${isHiddenDevice(d)?' · nicht im Trainingsplan':''}</div>
           </div>
           <div class="summaryWeight">${fmt(d.weight)} kg ›</div>
         </div>`;
@@ -1057,6 +1082,7 @@ async function showDevice(id){
 
     <div class="actions">
       <button class="secondary" id="editDevice">Gerät bearbeiten</button>
+      <button class="secondary" id="toggleHidden">${isHiddenDevice(d)?"👁️ Wieder einblenden":"🙈 Aus Trainingsplan ausblenden"}</button>
       <label class="filebtn secondary">Foto auswählen<input id="photoInput" type="file" accept="image/*" hidden></label>
       <button class="danger" id="deleteDevice">Löschen</button>
     </div>
@@ -1068,6 +1094,7 @@ async function showDevice(id){
   $("saveTraining").onclick=()=>saveTraining(d.id);
   $("showMuscles").onclick=()=>openMuscles(d.id,"detail");
   $("editDevice").onclick=()=>showEditDevice(d.id);
+  $("toggleHidden").onclick=()=>toggleDeviceHidden(d.id);
   $("deleteDevice").onclick=()=>deleteDevice(d.id);
   $("photoInput").onchange=e=>savePhoto(e,d.id);
   bindRestButtons($("deviceList"));
