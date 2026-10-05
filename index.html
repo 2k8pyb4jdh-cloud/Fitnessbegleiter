@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.4 FIX 2</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.5</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -226,7 +226,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="extraPlanBox" style="margin-bottom:10px"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
 </div>
 
 
@@ -715,6 +715,7 @@ function showHome(){
   $("homeActions").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
   renderNextPlan();
+  renderExtraPlan();
 }
 function showAddDevice(){
   planEntryMode=false;
@@ -829,6 +830,32 @@ function toggleDeviceHidden(id){
   d.hidden=!d.hidden;
   localStorage.removeItem(PLAN_KEY);
   if(persist()) openOverview();
+}
+const EXTRA_PLAN_KEY="fitnessbegleiter_extra_plan_v1";
+function loadExtraPlan(){try{return JSON.parse(localStorage.getItem(EXTRA_PLAN_KEY)||"null")}catch(e){return null}}
+function createExtraPlan(){
+ const ids=activeDevices().map(d=>({d,score:devicePlanScore(d)})).sort((a,b)=>b.score-a.score).slice(0,7).map(x=>x.d.id);
+ localStorage.setItem(EXTRA_PLAN_KEY,JSON.stringify({date:dateKey(new Date()),deviceIds:ids,completed:[]}));
+ renderExtraPlan();
+}
+function clearExtraPlan(){localStorage.removeItem(EXTRA_PLAN_KEY);renderExtraPlan()}
+function markExtraDone(id){
+ const p=loadExtraPlan();if(!p)return;
+ p.completed=p.completed||[];if(!p.completed.includes(id))p.completed.push(id);
+ localStorage.setItem(EXTRA_PLAN_KEY,JSON.stringify(p));
+}
+function openExtraPlannedDevice(id){planEntryMode=false;window.extraPlanEntryId=id;openDevice(id)}
+function renderExtraPlan(){
+ const box=$("extraPlanBox");if(!box)return;
+ const p=loadExtraPlan(),today=dateKey(new Date());
+ if(!p||p.date!==today){
+  box.innerHTML=`<button class="secondary full" id="createExtraPlan">⚡ Außerplanmäßiges Training</button><div class="small" style="margin-top:8px">Zusätzliche Einheit, ohne deinen Dienstag-/Freitag-/Sonntag-Plan zu verändern.</div>`;
+  $("createExtraPlan").onclick=createExtraPlan;return;
+ }
+ const rem=p.deviceIds.filter(id=>!(p.completed||[]).includes(id)).map(id=>state.devices.find(d=>d.id===id)).filter(Boolean);
+ box.innerHTML=`<div class="card" style="margin-top:12px"><b>⚡ Außerplanmäßiges Training</b><div class="small">${(p.completed||[]).length} von ${p.deviceIds.length} erledigt · unabhängig vom 3-Tage-Plan</div>${rem.map(d=>`<div class="summaryRow" data-extra="${d.id}"><div><div class="summaryName">${esc(d.name)}</div><div class="summaryMeta">${esc(d.muscle)}</div></div><div>›</div></div>`).join("")||"<p><b>✅ Zusatztraining komplett!</b></p>"}<button class="secondary full" id="clearExtraPlan">Zusatzplan beenden</button></div>`;
+ box.querySelectorAll("[data-extra]").forEach(el=>el.onclick=()=>openExtraPlannedDevice(el.dataset.extra));
+ $("clearExtraPlan").onclick=clearExtraPlan;
 }
 function plannedDevices(date){
  const split=splitForDate(date),all=state.devices.filter(d=>d?.hidden!==true),chosen=[];
@@ -1193,7 +1220,10 @@ function saveTraining(id){
   });
 
   if(persist()){
-    if(planEntryMode && isTrainingDay(new Date())){
+    if(window.extraPlanEntryId===id){
+    markExtraDone(id);window.extraPlanEntryId=null;showHome();return;
+  }
+  if(planEntryMode && isTrainingDay(new Date())){
       markPlanDeviceDone(id);
       showHome();
     }else{
