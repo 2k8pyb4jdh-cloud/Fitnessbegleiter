@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.4 FIX</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.4 FIX 2</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -820,6 +820,15 @@ function planMuscle(d){
  if(/fulldown|pulldown|lat|roman chair|row|rear delt|reverse fly|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
  if(/leg|bein|hip adduk|hip abduk|glute|curl|wade|calf/.test(n)||/bein|oberschenkel|po|wade/.test(m))return "legs";
  return "other";
+}
+function isHiddenDevice(d){return d?.hidden===true}
+function activeDevices(){return state.devices.filter(d=>!isHiddenDevice(d))}
+function toggleDeviceHidden(id){
+  const d=state.devices.find(x=>x.id===id);
+  if(!d)return;
+  d.hidden=!d.hidden;
+  localStorage.removeItem(PLAN_KEY);
+  if(persist()) openOverview();
 }
 function plannedDevices(date){
  const split=splitForDate(date),all=state.devices.filter(d=>d?.hidden!==true),chosen=[];
