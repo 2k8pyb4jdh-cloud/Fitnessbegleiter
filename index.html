@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.6</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.7</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -463,33 +463,38 @@ function readSetWeights(prefix,sets,target){
   const count=Math.max(1,Number(sets)||1);
   return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
 }
+function latestTrainingDayEntries(){
+  const all=[];
+  state.devices.forEach(d=>(d.logs||[]).forEach(log=>{
+    const time=new Date(log.date);
+    if(!Number.isNaN(time.getTime()))all.push({d,log,day:dateKey(time),time:time.getTime()});
+  }));
+  if(!all.length)return {day:null,entries:[]};
+  const latest=all.reduce((max,x)=>x.day>max?x.day:max,"");
+  return {day:latest,entries:all.filter(x=>x.day===latest).sort((a,b)=>a.time-b.time)};
+}
 function buildAnalysisPrompt(){
-  const totalLogs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
-  let lines=[
+  const {day,entries}=latestTrainingDayEntries();
+  if(!day)return "Noch keine Trainingseinträge vorhanden. Sobald ein Training gespeichert wurde, kann ausschließlich der letzte Trainingstag analysiert werden.";
+  const date=new Date(day+"T12:00:00").toLocaleDateString("de-DE");
+  const lines=[
     "Du bist mein persönlicher Trainingsanalyst.",
-    "Analysiere meine Trainingsdaten sachlich und konkret.",
-    "Bewerte Fortschritt, Plateaus, sinnvolle Gewichtserhöhungen, Rückschritte, Trainingshäufigkeit und auffällige Unterschiede zwischen Übungen.",
-    "Berücksichtige ausdrücklich Gewicht UND Wiederholungen JEDES einzelnen Satzes. Ein Aufwärmsatz mit weniger Gewicht darf nicht wie ein Arbeitssatz mit dem Topgewicht bewertet werden.",
-    "Gib für jedes Gerät eine kurze Bewertung und eine konkrete Empfehlung für das nächste Training.",
-    "Am Ende möchte ich eine kompakte Gesamtbewertung mit 3 Prioritäten.",
+    `Analysiere AUSSCHLIESSLICH meinen letzten Trainingstag: ${date}.`,
+    "Bewerte ausschließlich die nachfolgend an diesem Tag tatsächlich trainierten Geräte und Leistungen.",
+    "Bewerte Gewicht UND Wiederholungen jedes einzelnen Satzes getrennt. Leichtere Aufwärmsätze nicht mit schweren Arbeitssätzen gleichsetzen.",
+    "Gib pro trainiertem Gerät eine kurze, konkrete Bewertung und eine Empfehlung für das nächste Training.",
+    "Schließe mit einer kompakten Bewertung dieses Trainingstages und 3 konkreten Prioritäten.",
+    "Erfinde keine früheren Leistungen, Plateaus oder Trends, da keine früheren Trainingstage mitgeliefert werden.",
     "",
-    `GESAMT: ${state.devices.length} Geräte, ${totalLogs} gespeicherte Trainingseinträge.`,
+    `TRAININGSTAG: ${date}`,
+    `Geräte an diesem Tag: ${new Set(entries.map(x=>x.d.id)).size}; gespeicherte Einträge: ${entries.length}`,
     ""
   ];
-  state.devices.forEach(d=>{
-    lines.push(`### ${d.name} (${d.muscle})`);
-    lines.push(`Aktuelles Arbeitsgewicht: ${fmt(d.weight)} kg`);
-    lines.push(`Ziel: ${d.sets} Sätze × ${d.reps} Wiederholungen; Steigerungsschritt: ${fmt(d.step)} kg`);
-    lines.push(`Bestleistung: ${fmt(bestWeight(d))} kg`);
-    if(d.notes)lines.push(`Geräteeinstellung/Notiz: ${d.notes}`);
-    if(!d.logs.length){
-      lines.push("Noch kein Training gespeichert.");
-    }else{
-      d.logs.slice(0,20).forEach(log=>{
-        const date=new Date(log.date).toLocaleDateString("de-DE");
-        lines.push(`${date}: Sätze: ${setDetailText(log,d)} | Topgewicht: ${fmt(topSetWeight(log,d))} kg`);
-      });
-    }
+  entries.forEach(({d,log},i)=>{
+    lines.push(`### ${i+1}. ${d.name} (${d.muscle})`);
+    lines.push(`Sätze: ${setDetailText(log,d)}`);
+    lines.push(`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
+    lines.push(`Ziel: ${d.reps} Wiederholungen pro Satz; Steigerungsschritt: ${fmt(d.step)} kg`);
     lines.push("");
   });
   return lines.join("\n");
@@ -499,8 +504,9 @@ function openAiAnalysis(){
   workout.active=false;
   hideAllViews();
   $("homeActions").style.display="none";
-  const total=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
-  $("aiSummary").innerHTML=`<div class="aiHighlight">${state.devices.length} Geräte · ${total} Trainingseinträge</div>Die Analyse enthält Gewichte sowie die Wiederholungen jedes einzelnen Satzes.`;
+  const {day,entries}=latestTrainingDayEntries();
+  const date=day?new Date(day+"T12:00:00").toLocaleDateString("de-DE"):"Kein Training vorhanden";
+  $("aiSummary").innerHTML=`<div class="aiHighlight">Letzter Trainingstag: ${date} · ${new Set(entries.map(x=>x.d.id)).size} Geräte</div>Die Analyse enthält ausschließlich die an diesem Tag gespeicherten Sätze, Gewichte und Wiederholungen.`;
   $("aiPrompt").value=buildAnalysisPrompt();
   $("aiAnalysis").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
