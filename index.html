@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.0</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.1</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -393,6 +393,7 @@ async function load(){
     if(typeof d.hasPhoto!=="boolean")d.hasPhoto=!!d.photo;
   }
   await migrateLegacyPhotos();
+  // Zielbereiche werden dynamisch anhand der Gerätenamen angewendet. Keine historischen Daten überschreiben.
   applyV52HiddenMigration();
   renderStats();
   showHome();
@@ -483,6 +484,8 @@ function buildAnalysisPrompt(){
     "Bewerte ausschließlich die nachfolgend an diesem Tag tatsächlich trainierten Geräte und Leistungen.",
     "Bewerte Gewicht UND Wiederholungen jedes einzelnen Satzes getrennt. Leichtere Aufwärmsätze nicht mit schweren Arbeitssätzen gleichsetzen.",
     "Gib pro trainiertem Gerät eine kurze, konkrete Bewertung und eine Empfehlung für das nächste Training.",
+    "Nutze doppelte Progression: Gewicht erst erhöhen, wenn alle dokumentierten schweren Arbeitssätze das obere Ende des jeweiligen Zielbereichs mit sauberer Technik erreichen. Aufwärmsätze mit geringerem Gewicht nicht mitrechnen. Nach Steigerung darf die Wiederholungszahl zum unteren Ende zurückkehren.",
+    "Kein pauschales Erhöhen von Satzanzahl, Gewicht und Intensität gleichzeitig. Keine unnötigen zusätzlichen Arbeitssätze empfehlen. Technik und 1–2 Wiederholungen in Reserve beachten.",
     "Schließe mit einer kompakten Bewertung dieses Trainingstages und 3 konkreten Prioritäten.",
     "Erfinde keine früheren Leistungen, Plateaus oder Trends, da keine früheren Trainingstage mitgeliefert werden.",
     "WICHTIG: Die Einträge sind chronologisch nach dem Zeitpunkt des Speicherns sortiert. Berücksichtige die Reihenfolge, Vorermüdung derselben oder mitarbeitender Muskelgruppen und zeitliche Abstände bei der Bewertung.",
@@ -500,7 +503,7 @@ function buildAnalysisPrompt(){
     lines.push(`Reihenfolge: ${i+1} von ${entries.length}; gespeichert um: ${timeLabel} Uhr`);
     lines.push(`Sätze: ${setDetailText(log,d)}`);
     lines.push(`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
-    lines.push(`Ziel: ${d.reps} Wiederholungen pro Satz; Steigerungsschritt: ${fmt(d.step)} kg`);
+    lines.push(`Zielbereich: ${targetLabel(d)} Wiederholungen pro schwerem Arbeitssatz; Steigerungsschritt: ${fmt(d.step)} kg`);
     lines.push("");
   });
   return lines.join("\n");
@@ -539,14 +542,36 @@ function openChatGPT(){
 
 let muscleReturn="detail";
 
+const TARGET_RANGES=[
+ [/^bankdrücken$/,6,10],[/^schrägbankdrücken$/,6,10],
+ [/^shoulder press$/,8,12],[/^(?:full?down|pulldown) machine$/,8,12],
+ [/^seated cable row$/,8,12],[/^rear delt pec fly$/,12,15],
+ [/^bizeps(?: \(kabelzug\))?$/,8,12],[/^trizeps(?: \(kabelzug\))?$/,8,12],
+ [/^legs extensions$/,10,15],[/^prone leg curl$/,10,15],
+ [/^glute isolator$/,10,15],[/^hip adduktion(?: \/ nach innen)?$/,12,15],
+ [/^hip abduction(?: \/ nach außen)?$/,12,20],[/^wade$/,10,15],
+ [/^roman chair$/,10,15],[/^bauch$/,10,15],[/^cable rotation$/,12,15]
+];
+function targetRange(d){
+ const name=String(d.name||"").trim().toLowerCase();
+ const row=TARGET_RANGES.find(x=>x[0].test(name));
+ return row?{min:row[1],max:row[2]}:{min:Number(d.reps)||12,max:Number(d.reps)||12};
+}
+function targetLabel(d){const r=targetRange(d);return r.min===r.max?String(r.max):`${r.min}–${r.max}`}
+function progressionCheck(d,log){
+ const {max}=targetRange(d),weights=setWeightsArray(log,d),reps=repsArray(log,d);
+ const top=Math.max(...weights,0);
+ // Aufwärmsätze mit geringerem Gewicht zählen nicht zu den schweren Arbeitssätzen.
+ const working=reps.filter((_,i)=>weights[i]===top);
+ return working.length>0&&working.every(x=>x>=max);
+}
 function progressionAdvice(d){
-  if(!d.logs?.length) return {good:false,title:`Startgewicht: ${fmt(d.weight)} kg`,text:"Noch keine Trainingseinheit gespeichert. Erst einmal sauber trainieren und alle Sätze erfassen."};
-  const targetReps=Math.max(1,Number(d.reps)||1), last=d.logs[0];
-  const top=topSetWeight(last,d), topReps=topSetReps(last,d), step=Number(d.step)||0;
-  if(topReps>=targetReps && step>0){
-    return {good:true,title:`📈 Top-Satz mit ${fmt(top+step)} kg testen`,text:`Letzte Einheit: ${setDetailText(last,d)}. Dein schwerster Satz mit ${fmt(top)} kg hatte ${topReps} Wdh. und erreichte das Ziel von ${targetReps}.`};
-  }
-  return {good:false,title:`➡️ Topgewicht ${fmt(top)} kg halten`,text:`Letzte Einheit: ${setDetailText(last,d)}. Beim schwersten Satz wurden ${topReps} von ${targetReps} Ziel-Wiederholungen erreicht.`};
+ const range=targetRange(d);
+ if(!d.logs?.length)return {good:false,title:`Startgewicht: ${fmt(d.weight)} kg`,text:`Zielbereich ${targetLabel(d)} Wiederholungen. Starte mit sauberer Technik.`};
+ const last=d.logs[0],top=topSetWeight(last,d),step=Number(d.step)||0;
+ const ready=progressionCheck(d,last);
+ if(ready&&step>0)return {good:true,title:`📈 Nächstes Mal ${fmt(top+step)} kg testen`,text:`Alle dokumentierten schweren Arbeitssätze mit ${fmt(top)} kg erreichten mindestens ${range.max} Wiederholungen. Erhöhe um den kleinsten verfügbaren Schritt. Nach der Erhöhung sind ${range.min} Wiederholungen wieder ausreichend.`};
+ return {good:false,title:`➡️ ${fmt(top)} kg halten`,text:`Ziel ${targetLabel(d)} Wiederholungen. Erst steigern, wenn alle schweren Arbeitssätze am höchsten Arbeitsgewicht mindestens ${range.max} saubere Wiederholungen erreichen. Aufwärmsätze mit weniger Gewicht zählen nicht mit.`};
 }
 function adviceHtml(d){
   const a=progressionAdvice(d);
@@ -1109,7 +1134,7 @@ async function showDevice(id){
     <div class="deviceHead">
       <div>
         <div class="title">${esc(d.name)}</div>
-        <div class="meta">${esc(d.muscle)} · Ziel ${d.sets} × ${d.reps} · +${fmt(d.step)} kg</div>
+        <div class="meta">${esc(d.muscle)} · Ziel ${d.sets} × ${targetLabel(d)} · +${fmt(d.step)} kg</div>
         <div class="prBox">🏆 Bestleistung: ${fmt(bestWeight(d))} kg</div>
       </div>
       <div data-photo-slot="${d.id}"><div class="placeholder">${d.hasPhoto?"Foto<br>wird geladen":"Foto<br>folgt"}</div></div>
@@ -1129,7 +1154,7 @@ async function showDevice(id){
       </div>
       <div>
         <label>Ziel-Wiederholungen</label>
-        <input type="number" value="${d.reps}" readonly>
+        <input type="number" value="${targetLabel(d)}" readonly>
       </div>
     </div>
     <label>Gewicht & Wiederholungen je Satz</label>
@@ -1232,7 +1257,7 @@ function editTrainingLog(id,index){
    log.setReps=newReps;log.setWeights=newWeights;
    log.sets=newReps.length;log.reps=Math.min(...newReps);
    log.weight=Math.max(...newWeights,0);
-   log.success=topSetReps(log,d)>=Number(d.reps);
+   log.success=progressionCheck(d,log);
    // Recalculate current top weight from the latest recorded session.
    if(index===0)d.weight=log.weight;
    log.up=index+1<d.logs.length?log.weight>topSetWeight(d.logs[index+1],d):false;
@@ -1259,7 +1284,7 @@ function saveTraining(id){
     reps:r,
     setReps:setReps,
     setWeights:setWeights,
-    success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
+    success:progressionCheck(d,{setWeights,setReps,weight:top}),
     up:top>old
   });
 
@@ -1343,7 +1368,7 @@ function showWorkoutStep(){
 
     <div class="grid" style="margin-top:14px">
       <div><label style="color:#d1d5db">Sätze</label><input type="number" value="${d.sets}" readonly></div>
-      <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${d.reps}" readonly></div>
+      <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${targetLabel(d)}" readonly></div>
     </div>
     <label style="color:#d1d5db">Gewicht & Wiederholungen je Satz</label>
     ${setInputsHtml("woRep",d.sets,d.reps,null,"woWeight",null,d.weight)}
@@ -1373,7 +1398,7 @@ function showWorkoutStep(){
       reps:r,
       setReps:setReps,
       setWeights:setWeights,
-      success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
+      success:progressionCheck(d,{setWeights,setReps,weight:top}),
       up:top>old
     });
     persist();
@@ -1442,6 +1467,7 @@ $("importFile").onchange=e=>{
       if(Array.isArray(x.devices)){
         state=x;
         await migrateLegacyPhotos();
+  // Zielbereiche werden dynamisch anhand der Gerätenamen angewendet. Keine historischen Daten überschreiben.
         persist();
         openOverview();
       }
