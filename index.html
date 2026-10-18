@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v5.8</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.0</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -429,25 +429,9 @@ function setWeightsArray(log,d){
   return reps.map(()=>Number(log?.weight??d?.weight)||0);
 }
 function repsText(log,d){ return repsArray(log,d).join(" / "); }
-function bilateralDevice(d){return /cable\s*rotation|glute\s*isolator/i.test(d?.name||"")}
-function sideInputsHtml(d,prefix,log){
- if(!bilateralDevice(d))return "";
- const left=log?.sideLeft||{},right=log?.sideRight||{};
- return `<div class="card" style="margin-top:10px"><b>↔️ Links und rechts getrennt</b><div class="small">Gewicht und Wiederholungen je Seite und Satz</div>${["left","right"].map(side=>{const vals=side==="left"?left:right;return `<h3>${side==="left"?"Links":"Rechts"}</h3>${setInputsHtml(prefix+"_"+side,d.sets,d.reps,vals.setReps,"weight_"+prefix+"_"+side,vals.setWeights,d.weight)}`}).join("")}</div>`;
-}
-function readSideInputs(d,prefix){
- if(!bilateralDevice(d))return {};
- const get=side=>({setReps:readSetReps(prefix+"_"+side,d.sets,d.reps),setWeights:readSetWeights("weight_"+prefix+"_"+side,d.sets,d.weight)});
- return {sideLeft:get("left"),sideRight:get("right")};
-}
-function sideDetailText(log,d){
- if(!bilateralDevice(d)||!log?.sideLeft||!log?.sideRight)return "";
- const fmtSide=x=>x.setReps.map((r,i)=>`${fmt(x.setWeights[i])} kg × ${r}`).join(" · ");
- return ` | Links: ${fmtSide(log.sideLeft)} | Rechts: ${fmtSide(log.sideRight)}`;
-}
 function setDetailText(log,d){
   const reps=repsArray(log,d), weights=setWeightsArray(log,d);
-  return reps.map((r,i)=>`${fmt(weights[i])} kg × ${r}`).join(" · ")+sideDetailText(log,d);
+  return reps.map((r,i)=>`${fmt(weights[i])} kg × ${r}`).join(" · ");
 }
 function topSetWeight(log,d){
   return Math.max(...setWeightsArray(log,d),0);
@@ -483,7 +467,7 @@ function latestTrainingDayEntries(){
   const all=[];
   state.devices.forEach(d=>(d.logs||[]).forEach(log=>{
     const time=new Date(log.date);
-    if(!Number.isNaN(time.getTime()))all.push({d,log,day:dateKey(time),time:time.getTime()});
+    if(!Number.isNaN(time.getTime()))all.push({d,log,day:dateKey(time),time:new Date(log.completedAt||log.date).getTime()});
   }));
   if(!all.length)return {day:null,entries:[]};
   const latest=all.reduce((max,x)=>x.day>max?x.day:max,"");
@@ -501,13 +485,19 @@ function buildAnalysisPrompt(){
     "Gib pro trainiertem Gerät eine kurze, konkrete Bewertung und eine Empfehlung für das nächste Training.",
     "Schließe mit einer kompakten Bewertung dieses Trainingstages und 3 konkreten Prioritäten.",
     "Erfinde keine früheren Leistungen, Plateaus oder Trends, da keine früheren Trainingstage mitgeliefert werden.",
+    "WICHTIG: Die Einträge sind chronologisch nach dem Zeitpunkt des Speicherns sortiert. Berücksichtige die Reihenfolge, Vorermüdung derselben oder mitarbeitender Muskelgruppen und zeitliche Abstände bei der Bewertung.",
+    "Wenn etwa nach zwei Brustübungen eine dritte Brustübung schwächer ausfällt, nenne lokale Muskelermüdung als plausible Erklärung, nicht als gesicherte Ursache. Beachte unterschiedliche Übungen, Gewichte, Aufwärmsätze und fehlende Pauseninformationen.",
+    "Die Uhrzeit ist der Speicherzeitpunkt der Übung, nicht zwingend deren Beginn. Keine exakten Satzpausen oder Ausführungsdauern daraus ableiten.",
     "",
     `TRAININGSTAG: ${date}`,
     `Geräte an diesem Tag: ${new Set(entries.map(x=>x.d.id)).size}; gespeicherte Einträge: ${entries.length}`,
     ""
   ];
   entries.forEach(({d,log},i)=>{
+    const savedAt=new Date(log.completedAt||log.date);
+    const timeLabel=Number.isNaN(savedAt.getTime())?"unbekannt":savedAt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
     lines.push(`### ${i+1}. ${d.name} (${d.muscle})`);
+    lines.push(`Reihenfolge: ${i+1} von ${entries.length}; gespeichert um: ${timeLabel} Uhr`);
     lines.push(`Sätze: ${setDetailText(log,d)}`);
     lines.push(`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
     lines.push(`Ziel: ${d.reps} Wiederholungen pro Satz; Steigerungsschritt: ${fmt(d.step)} kg`);
@@ -1143,7 +1133,7 @@ async function showDevice(id){
       </div>
     </div>
     <label>Gewicht & Wiederholungen je Satz</label>
-    ${bilateralDevice(d)?sideInputsHtml(d,"detail_"+d.id):setInputsHtml("sr_"+d.id,d.sets,d.reps,null,"sw_"+d.id,null,d.weight)}
+    ${setInputsHtml("sr_"+d.id,d.sets,d.reps,null,"sw_"+d.id,null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("detail")}
     <button class="full" id="saveTraining">Training speichern</button>
 
@@ -1228,7 +1218,7 @@ function editTrainingLog(id,index){
  area.className="card";
  area.style.marginTop="12px";
  area.innerHTML=`<h2>✏️ Training korrigieren</h2><div class="small">Bestehenden Eintrag überschreiben, keinen neuen erstellen.</div>
- <div id="editLogSets">${bilateralDevice(d)?sideInputsHtml(d,"edit_"+id,log):setInputsHtml("editRep",reps.length,d.reps,reps,"editWeight",weights,log.weight)}</div>
+ <div id="editLogSets">${setInputsHtml("editRep",reps.length,d.reps,reps,"editWeight",weights,log.weight)}</div>
  <button class="full" id="confirmLogEdit">Korrektur speichern</button><button class="secondary full" id="cancelLogEdit">Abbrechen</button>`;
  const existing=document.getElementById("logEditArea");if(existing)existing.remove();
  area.id="logEditArea";
@@ -1236,10 +1226,8 @@ function editTrainingLog(id,index){
  if(!area.isConnected)document.getElementById("deviceList").appendChild(area);
  area.querySelector("#cancelLogEdit").onclick=()=>area.remove();
  area.querySelector("#confirmLogEdit").onclick=()=>{
-   const sides=readSideInputs(d,"edit_"+id);
-   const newReps=bilateralDevice(d)?sides.sideLeft.setReps:readSetReps("editRep",reps.length,d.reps);
-   const newWeights=bilateralDevice(d)?sides.sideLeft.setWeights:readSetWeights("editWeight",reps.length,log.weight);
-   if(bilateralDevice(d))Object.assign(log,sides);
+   const newReps=readSetReps("editRep",reps.length,d.reps);
+   const newWeights=readSetWeights("editWeight",reps.length,log.weight);
    if(newReps.some(x=>x<0)||newWeights.some(x=>x<0)){alert("Bitte gültige Werte eingeben.");return}
    log.setReps=newReps;log.setWeights=newWeights;
    log.sets=newReps.length;log.reps=Math.min(...newReps);
@@ -1256,22 +1244,21 @@ function saveTraining(id){
   const d=state.devices.find(x=>x.id===id);
   if(!d)return;
   const s=d.sets;
-  const sides=readSideInputs(d,"detail_"+id);
-  const setReps=bilateralDevice(d)?sides.sideLeft.setReps:readSetReps("sr_"+id,s,d.reps);
-  const setWeights=bilateralDevice(d)?sides.sideLeft.setWeights:readSetWeights("sw_"+id,s,d.weight);
+  const setReps=readSetReps("sr_"+id,s,d.reps);
+  const setWeights=readSetWeights("sw_"+id,s,d.weight);
   const r=Math.min(...setReps);
   const old=d.weight;
-  const top=Math.max(...setWeights,...(sides.sideRight?.setWeights||[]),0);
+  const top=Math.max(...setWeights,0);
 
   d.weight=top;
   d.logs.unshift({
     date:new Date().toISOString(),
+    completedAt:new Date().toISOString(),
     weight:top,
     sets:s,
     reps:r,
     setReps:setReps,
     setWeights:setWeights,
-    ...sides,
     success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
     up:top>old
   });
@@ -1359,7 +1346,7 @@ function showWorkoutStep(){
       <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${d.reps}" readonly></div>
     </div>
     <label style="color:#d1d5db">Gewicht & Wiederholungen je Satz</label>
-    ${bilateralDevice(d)?sideInputsHtml(d,"workout"):setInputsHtml("woRep",d.sets,d.reps,null,"woWeight",null,d.weight)}
+    ${setInputsHtml("woRep",d.sets,d.reps,null,"woWeight",null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("workout")}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
@@ -1380,14 +1367,13 @@ function showWorkoutStep(){
     d.weight=top;
     d.logs.unshift({
       date:new Date().toISOString(),
+      completedAt:new Date().toISOString(),
       weight:top,
       sets:s,
       reps:r,
       setReps:setReps,
       setWeights:setWeights,
-      ...readSideInputs(d,"workout"),
-      success:topSetReps({setWeights:setWeights,
-      ...readSideInputs(d,"workout"),setReps:setReps,weight:top},d)>=Number(d.reps),
+      success:topSetReps({setWeights:setWeights,setReps:setReps,weight:top},d)>=Number(d.reps),
       up:top>old
     });
     persist();
