@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.3</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.4</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -226,7 +226,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="extraPlanBox" style="margin-bottom:10px"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="muscleGroupsHome" style="margin:12px 0"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
 </div>
 
 
@@ -499,6 +499,7 @@ function buildAnalysisPrompt(){
     "Kein pauschales Erhöhen von Satzanzahl, Gewicht und Intensität gleichzeitig. Keine unnötigen zusätzlichen Arbeitssätze empfehlen. Technik und 1–2 Wiederholungen in Reserve beachten.",
     "Schließe mit einer kompakten Bewertung dieses Trainingstages und 3 konkreten Prioritäten.",
     "Erfinde keine früheren Leistungen, Plateaus oder Trends, da keine früheren Trainingstage mitgeliefert werden.",
+    "Rear Delt Pec Fly wird hier ausschließlich als Butterfly für die Brust genutzt. Ordne es der Brust zu und berücksichtige die Vorermüdung durch andere Brustübungen.",
     "WICHTIG: Die Einträge sind chronologisch nach dem Zeitpunkt des Speicherns sortiert. Berücksichtige die Reihenfolge, Vorermüdung derselben oder mitarbeitender Muskelgruppen und zeitliche Abstände bei der Bewertung.",
     "Wenn etwa nach zwei Brustübungen eine dritte Brustübung schwächer ausfällt, nenne lokale Muskelermüdung als plausible Erklärung, nicht als gesicherte Ursache. Beachte unterschiedliche Übungen, Gewichte, Aufwärmsätze und fehlende Pauseninformationen.",
     "Die Uhrzeit ist der Speicherzeitpunkt der Übung, nicht zwingend deren Beginn. Keine exakten Satzpausen oder Ausführungsdauern daraus ableiten.",
@@ -619,11 +620,21 @@ function muscleInfo(d){
     [/^seated cable row$/,()=>{subtitle="Kabelrudern · mittlerer Rücken";M("midback","mittlerer Rücken");S("lats","Latissimus");S("reardelts","hintere Schulter");S("biceps","Bizeps");}],
     [/^shoulder press$/,()=>{subtitle="Schulterdrücken · Schulter";M("frontdelts","vordere / seitliche Schulter");S("triceps","Trizeps");}],
     [/^prone leg curl$/,()=>{subtitle="Beinbeuger · hinterer Oberschenkel";M("hamstrings","Beinbeuger");S("calves","Waden");}],
-    [/^rear delt pec fly$/,()=>{subtitle="Reverse Fly · hintere Schulter";M("reardelts","hintere Schulter");S("upperback","oberer Rücken");}]
+    [/^rear delt pec fly$/,()=>{subtitle="Butterfly · Brust";M("chest","Brustmuskulatur");S("frontdelts","vordere Schulter");}]
   ];
 
   let hit=false;
   for(const [rx,fn] of exact){if(rx.test(n)){fn();hit=true;break;}}
+  if(!hit){
+    if(/bankdrücken|bankdrucken|bankdruecken/i.test(raw)){subtitle="Bankdrücken · Brust";M("chest","Brustmuskulatur");S("triceps","Trizeps");S("frontdelts","vordere Schulter");hit=true;}
+    else if(/schrägbank|schragbank/i.test(raw)){subtitle="Schrägbankdrücken · obere Brust";M("upperchest","obere Brust");S("triceps","Trizeps");S("frontdelts","vordere Schulter");hit=true;}
+    else if(/pulldown|klimmzug|klimmzüge/i.test(raw)){subtitle="Vertikales Ziehen · Latissimus";M("lats","Latissimus");S("biceps","Bizeps");hit=true;}
+    else if(/cable rotation/i.test(raw)){subtitle="Rotation · schräge Bauchmuskulatur";M("obliques","schräge Bauchmuskulatur");hit=true;}
+    else if(/^bauch$/i.test(raw)){subtitle="Bauch · gerade Bauchmuskulatur";M("abs","Bauchmuskulatur");hit=true;}
+    else if(/^wade$/i.test(raw)){subtitle="Waden";M("calves","Wadenmuskulatur");hit=true;}
+    else if(/hip adduktion/i.test(raw)){subtitle="Adduktoren";M("adductors","Oberschenkelinnenseite");hit=true;}
+    else if(/hip abduction/i.test(raw)){subtitle="Abduktoren";M("abductors","seitliche Gesäßmuskulatur");hit=true;}
+  }
   if(!hit){
     const t=(raw+" "+(d.muscle||"")).toLowerCase();
     if(/leg extension|beinstrecker/.test(t)){subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}
@@ -693,7 +704,14 @@ function muscleSvg(info,d){
     "seated cable row":"seated-cable-row.png",
     "shoulder press":"shoulder-press.png",
     "prone leg curl":"prone-leg-curl.png",
-    "rear delt pec fly":"rear-delt-pec-fly.png"
+    "rear delt pec fly":"chest-press-vertical.png",
+    "bankdrücken":"chest-press-vertical.png",
+    "schrägbankdrücken":"incline-press.png",
+    "pulldown machine":"fulldown-machine.png",
+    "bizeps (kabelzug)":"bizeps.png",
+    "trizeps (kabelzug)":"trizeps.png",
+    "hip adduktion":"hip-adduktion.png",
+    "hip abduction":"hip-abduktion.png"
   };
   const file=files[n];
   if(!file) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
@@ -773,7 +791,7 @@ function showHome(){
   $("homeActions").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
   renderNextPlan();
-  renderExtraPlan();
+  renderMuscleGroupsHome();
 }
 function showAddDevice(){
   planEntryMode=false;
@@ -860,7 +878,7 @@ function normName(s){return String(s||"").toLowerCase().normalize("NFD").replace
 function deviceSplit(d){
   const n=normName(d.name),m=normName(d.muscle);
   if(/leg|bein|hip adduk|hip abduk|glute|curl/.test(n)||/bein|oberschenkel|po/.test(m))return "legs";
-  if(/fulldown|pulldown|lat|roman chair|t-bar|row|rear delt|reverse fly|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
+  if(/fulldown|pulldown|lat|roman chair|t-bar|row|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
   if(/trizeps|bizeps|incline|chest|shoulder|press|brust/.test(n)||/arm|brust|schulter/.test(m))return "upper";
   return "other";
 }
@@ -876,7 +894,7 @@ function planMuscle(d){
  if(/trizeps/.test(n)||/trizeps/.test(m))return "triceps";
  if(/shoulder press|schulter/.test(n)||/schulter/.test(m))return "shoulders";
  if(/bankdruck|bankdr|schragbank|schrägbank|chest|pec fly|brust/.test(n)||/brust/.test(m))return "chest";
- if(/fulldown|pulldown|lat|roman chair|row|rear delt|reverse fly|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
+ if(/fulldown|pulldown|lat|roman chair|row|ruck|rücken/.test(n)||/ruck|rücken/.test(m))return "back";
  if(/leg|bein|hip adduk|hip abduk|glute|curl|wade|calf/.test(n)||/bein|oberschenkel|po|wade/.test(m))return "legs";
  return "other";
 }
@@ -1081,6 +1099,36 @@ function bindRestButtons(root=document){
   root.querySelectorAll("[data-rest]").forEach(b=>b.onclick=()=>startRestTimer(Number(b.dataset.rest)));
 }
 
+function bodyPartGroup(d){
+ const n=normName(d.name),m=normName(d.muscle);
+ if(/rear delt pec fly|bankdruck|bankdr|schragbank|butterfly|chest|brust|incline press/.test(n))return "Brust";
+ if(/bizeps|biceps/.test(n))return "Bizeps";
+ if(/trizeps|triceps/.test(n))return "Trizeps";
+ if(/shoulder|schulter|delt/.test(n))return "Schultern";
+ if(/bauch|cable rotation|crunch|abdominal/.test(n))return "Bauch & Rumpf";
+ if(/wade|calf/.test(n))return "Waden";
+ if(/glute|hip abduk|hip adduk|po|gesass/.test(n))return "Gesäß & Hüfte";
+ if(/leg|bein|curl|squat/.test(n))return "Beine";
+ if(/pulldown|fulldown|klimm|lat|row|roman chair|ruck|rücken|t-bar/.test(n))return "Rücken";
+ if(/brust/.test(m))return "Brust";
+ if(/ruck|rücken/.test(m))return "Rücken";
+ if(/bein|oberschenkel/.test(m))return "Beine";
+ if(/arm/.test(m))return "Arme";
+ return "Weitere Übungen";
+}
+const BODY_GROUPS=["Brust","Rücken","Schultern","Bizeps","Trizeps","Beine","Gesäß & Hüfte","Waden","Bauch & Rumpf","Arme","Weitere Übungen"];
+function groupedDeviceHtml(devices,row){
+ return BODY_GROUPS.map(group=>{
+  const matches=devices.filter(d=>bodyPartGroup(d)===group);
+  return matches.length?`<details class="hiddenFolder bodyGroup"><summary><span>${group}</span><b>${matches.length} ›</b></summary><div class="hiddenFolderBody">${matches.map(row).join("")}</div></details>`:"";
+ }).join("");
+}
+function renderMuscleGroupsHome(){
+ const box=$("muscleGroupsHome");if(!box)return;
+ const devices=activeDevices();
+ box.innerHTML=`<h3>🏋️ Übungen nach Körperteilen</h3>`+groupedDeviceHtml(devices,d=>`<div class="summaryRow" data-home-device="${esc(d.id)}"><div class="summaryName">${esc(d.name)}</div><span>›</span></div>`);
+ box.querySelectorAll("[data-home-device]").forEach(el=>el.onclick=()=>showDevice(el.dataset.homeDevice));
+}
 function openOverview(){
   planEntryMode=false;
   currentView="overview";
@@ -1111,7 +1159,7 @@ function openOverview(){
     </div>`;
   };
   $("overviewSummary").innerHTML=state.devices.length
-    ? activeOverview.map(overviewRow).join("")+
+    ? groupedDeviceHtml(activeOverview,overviewRow)+
       (hiddenOverview.length
         ? `<details class="hiddenFolder">
             <summary><span>🙈 Ausgeblendet</span><b>${hiddenOverview.length}</b></summary>
@@ -1312,10 +1360,7 @@ function saveTraining(id){
   });
 
   if(persist()){
-    if(window.extraPlanEntryId===id){
-    markExtraDone(id);window.extraPlanEntryId=null;showHome();return;
-  }
-  if(planEntryMode && isTrainingDay(new Date())){
+if(planEntryMode && isTrainingDay(new Date())){
       markPlanDeviceDone(id);
       showHome();
     }else{
