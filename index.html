@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.6</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.7</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -712,13 +712,17 @@ function muscleSvg(info,d){
     "trizeps (kabelzug)":"trizeps.png",
     "hip adduktion":"hip-adduktion.png",
     "hip abduction":"hip-abduktion.png",
-    "klimmzüge":"fulldown-machine.png",
+    "klimmzüge":"klimmzuege.png",
+    "klimmzug":"klimmzuege.png",
+    "klimmzüge (unterstützung)":"klimmzuege.png",
+    "klimmzüge (unterstützt)":"klimmzuege.png",
+    "assisted pull-up":"klimmzuege.png",
     "wade":"wade.png",
     "bauch":"bauch.png",
     "cable rotation":"cable-rotation.png",
     "hip adduktion":"hip-adduktion.png"
   };
-  const file=files[n];
+  const file=files[n] || (/klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
   if(!file) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
   return `<div class="singleMuscleCard">
     <img class="singleMuscleImage" src="assets/muscles/${file}" alt="Trainierte Muskeln – ${esc((d&&d.name)||"Gerät")}">
@@ -1104,16 +1108,15 @@ function bindRestButtons(root=document){
   root.querySelectorAll("[data-rest]").forEach(b=>b.onclick=()=>startRestTimer(Number(b.dataset.rest)));
 }
 
-const BODY_GROUPS=["Brust","Rücken","Schultern","Bizeps","Trizeps","Beine","Gesäß & Hüfte","Waden","Bauch & Rumpf","Weitere Übungen"];
+const BODY_GROUPS=["Brust","Rücken","Schultern","Bizeps","Trizeps","Beine","Gesäß & Hüfte","Bauch & Rumpf","Weitere Übungen"];
 const GROUP_MUSCLES={
  "Brust":["chest","upperchest"],
  "Rücken":["lats","upperback","midback","lowerback"],
  "Schultern":["frontdelts","reardelts"],
  "Bizeps":["biceps","brachialis"],
  "Trizeps":["triceps"],
- "Beine":["quads","hamstrings","adductors"],
+ "Beine":["quads","hamstrings","adductors","calves"],
  "Gesäß & Hüfte":["glutes","abductors","adductors"],
- "Waden":["calves"],
  "Bauch & Rumpf":["abs","obliques","lowerback"]
 };
 function bodyPartMatches(d,group){
