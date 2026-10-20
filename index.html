@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.2</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.3</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -272,7 +272,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <div><label>Aktuelles Gewicht (kg)</label><input id="weight" type="number" inputmode="decimal" step=".5" value="20"></div>
 <div><label>Steigerungsschritt (kg)</label><input id="step" type="number" inputmode="decimal" step=".5" value="2.5"></div>
 <div><label>Zielsätze</label><input id="sets" type="number" inputmode="numeric" value="3"></div>
-<div><label>Ziel-Wiederholungen</label><input id="reps" type="number" inputmode="numeric" value="12"></div>
+<div><label>Ziel-Wiederholungen</label><input id="reps" type="number" inputmode="numeric" value="8"></div>
 </div>
 <div style="margin-top:10px"><label>Geräteeinstellung / Notiz</label><textarea id="notes" placeholder="Sitzposition, Lehne, Griff usw."></textarea></div>
 <button class="full" id="saveBtn">Gerät speichern</button><button class="full secondary" id="cancelBtn" style="display:none">Abbrechen</button>
@@ -398,6 +398,15 @@ async function load(){
   renderStats();
   showHome();
 }
+const TARGET_EIGHT_MIGRATION="fitnessbegleiter_target8_v1";
+function migrateTargetEight(){
+ if(localStorage.getItem(TARGET_EIGHT_MIGRATION)==="done")return;
+ if(!state||!Array.isArray(state.devices))return;
+ const old=state.devices.map(d=>d.reps);
+ state.devices.forEach(d=>{d.reps=8});
+ try{localStorage.setItem(KEY,JSON.stringify(state));localStorage.setItem(TARGET_EIGHT_MIGRATION,"done")}
+ catch(e){state.devices.forEach((d,i)=>{d.reps=old[i]})}
+}
 function persist(){
   try{
     localStorage.setItem(KEY,JSON.stringify(state));
@@ -409,6 +418,7 @@ function persist(){
   }
 }
 function renderStats(){
+  migrateTargetEight();
   const logs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
   const ups=state.devices.reduce((a,d)=>a+(d.logs||[]).filter(x=>x.up).length,0);
   $("stDevices").textContent=state.devices.length;
@@ -446,23 +456,23 @@ function topSetReps(log,d){
 }
 function setInputsHtml(prefix,sets,target,values,weightPrefix,weights,defaultWeight){
   const count=Math.max(1,Number(sets)||1);
-  const reps=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>target);
+  const reps=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>"");
   const ws=Array.isArray(weights)&&weights.length?weights:Array.from({length:count},()=>defaultWeight);
   return `<div class="setRepGrid">${Array.from({length:count},(_,i)=>`
     <div>
       <label>Satz ${i+1} · Gewicht (kg)</label>
       <input id="${weightPrefix}_${i}" type="number" inputmode="decimal" step=".5" min="0" value="${Number(ws[i]??defaultWeight)||0}">
       <label style="margin-top:6px">Wiederholungen</label>
-      <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${Number(reps[i]??target)||0}">
+      <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${reps[i]===undefined||reps[i]===null?"":reps[i]}">
     </div>`).join("")}</div>`;
 }
 function readSetReps(prefix,sets,target){
   const count=Math.max(1,Number(sets)||1);
-  return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
+  return Array.from({length:count},(_,i)=>{const raw=$(prefix+"_"+i)?.value;return raw===""||raw==null?NaN:Number(raw)});
 }
 function readSetWeights(prefix,sets,target){
   const count=Math.max(1,Number(sets)||1);
-  return Array.from({length:count},(_,i)=>n($(prefix+"_"+i)?.value,target));
+  return Array.from({length:count},(_,i)=>{const raw=$(prefix+"_"+i)?.value;return raw===""||raw==null?NaN:Number(raw)});
 }
 function latestTrainingDayEntries(){
   const all=[];
@@ -558,8 +568,7 @@ function isAssistedPullup(d){
 }
 function targetRange(d){
  const name=String(d.name||"").trim().toLowerCase();
- const row=TARGET_RANGES.find(x=>x[0].test(name));
- return row?{min:row[1],max:row[2]}:{min:Number(d.reps)||12,max:Number(d.reps)||12};
+ return {min:8,max:8};
 }
 function targetLabel(d){const r=targetRange(d);return r.min===r.max?String(r.max):`${r.min}–${r.max}`}
 function progressionCheck(d,log){
@@ -1217,7 +1226,7 @@ function resetForm(){
   $("weight").value=20;
   $("step").value=2.5;
   $("sets").value=3;
-  $("reps").value=12;
+  $("reps").value=8;
   $("notes").value="";
   $("formTitle").textContent="Gerät hinzufügen";
   $("saveBtn").textContent="Gerät speichern";
@@ -1231,7 +1240,7 @@ function saveDevice(){
     weight:n($("weight").value,0),
     step:n($("step").value,2.5),
     sets:n($("sets").value,3),
-    reps:n($("reps").value,12),
+    reps:n($("reps").value,8),
     notes:$("notes").value.trim()
   };
 
@@ -1265,6 +1274,7 @@ function editTrainingLog(id,index){
  area.querySelector("#confirmLogEdit").onclick=()=>{
    const newReps=readSetReps("editRep",reps.length,d.reps);
    const newWeights=readSetWeights("editWeight",reps.length,log.weight);
+   if(newReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die Wiederholungen aller Sätze eintragen.");return}
    if(newReps.some(x=>x<0)||newWeights.some(x=>x<0)){alert("Bitte gültige Werte eingeben.");return}
    log.setReps=newReps;log.setWeights=newWeights;
    log.sets=newReps.length;log.reps=Math.min(...newReps);
@@ -1283,6 +1293,7 @@ function saveTraining(id){
   const s=d.sets;
   const setReps=readSetReps("sr_"+id,s,d.reps);
   const setWeights=readSetWeights("sw_"+id,s,d.weight);
+  if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die tatsächlichen Wiederholungen aller Sätze eintragen.");return}
   const r=Math.min(...setReps);
   const old=d.weight;
   const top=Math.max(...setWeights,0);
@@ -1397,6 +1408,7 @@ function showWorkoutStep(){
   $("woSave").onclick=()=>{
     const s=d.sets;
     const setReps=readSetReps("woRep",s,d.reps);
+    if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die Wiederholungen aller Sätze eintragen.");return}
     const setWeights=readSetWeights("woWeight",s,d.weight);
     const r=Math.min(...setReps);
     const old=d.weight;
