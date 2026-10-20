@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.1</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.2</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -484,6 +484,7 @@ function buildAnalysisPrompt(){
     "Bewerte ausschließlich die nachfolgend an diesem Tag tatsächlich trainierten Geräte und Leistungen.",
     "Bewerte Gewicht UND Wiederholungen jedes einzelnen Satzes getrennt. Leichtere Aufwärmsätze nicht mit schweren Arbeitssätzen gleichsetzen.",
     "Gib pro trainiertem Gerät eine kurze, konkrete Bewertung und eine Empfehlung für das nächste Training.",
+    "SONDERREGEL KLIMMZÜGE: Die erfassten Kilogramm sind Geräteunterstützung. WENIGER kg bedeutet höhere Belastung. Bei Erreichen des oberen Zielbereichs in allen schweren Arbeitssätzen ausschließlich für Klimmzüge eine Verringerung der Unterstützung um den kleinsten Schritt empfehlen, niemals eine Erhöhung. Für alle anderen Geräte gelten die normalen Steigerungsregeln.",
     "Nutze doppelte Progression: Gewicht erst erhöhen, wenn alle dokumentierten schweren Arbeitssätze das obere Ende des jeweiligen Zielbereichs mit sauberer Technik erreichen. Aufwärmsätze mit geringerem Gewicht nicht mitrechnen. Nach Steigerung darf die Wiederholungszahl zum unteren Ende zurückkehren.",
     "Kein pauschales Erhöhen von Satzanzahl, Gewicht und Intensität gleichzeitig. Keine unnötigen zusätzlichen Arbeitssätze empfehlen. Technik und 1–2 Wiederholungen in Reserve beachten.",
     "Schließe mit einer kompakten Bewertung dieses Trainingstages und 3 konkreten Prioritäten.",
@@ -502,8 +503,8 @@ function buildAnalysisPrompt(){
     lines.push(`### ${i+1}. ${d.name} (${d.muscle})`);
     lines.push(`Reihenfolge: ${i+1} von ${entries.length}; gespeichert um: ${timeLabel} Uhr`);
     lines.push(`Sätze: ${setDetailText(log,d)}`);
-    lines.push(`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
-    lines.push(`Zielbereich: ${targetLabel(d)} Wiederholungen pro schwerem Arbeitssatz; Steigerungsschritt: ${fmt(d.step)} kg`);
+    lines.push(isAssistedPullup(d)?`Klimmzug-Unterstützung (kg; weniger ist schwerer): ${setDetailText(log,d)}`:`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
+    lines.push(`Zielbereich: ${targetLabel(d)} Wiederholungen pro schwerem Arbeitssatz; ${isAssistedPullup(d)?"Unterstützungsschritt (bei Fortschritt abziehen)":"Steigerungsschritt"}: ${fmt(d.step)} kg`);
     lines.push("");
   });
   return lines.join("\n");
@@ -552,6 +553,9 @@ const TARGET_RANGES=[
  [/^hip abduction(?: \/ nach außen)?$/,12,20],[/^wade$/,10,15],
  [/^roman chair$/,10,15],[/^bauch$/,10,15],[/^cable rotation$/,12,15]
 ];
+function isAssistedPullup(d){
+ return /^(?:klimmzüge|klimmzug|assisted pull[ -]?up|assisted pull[ -]?ups)(?:\\s*\\(.*\\))?$/i.test(String(d.name||"").trim());
+}
 function targetRange(d){
  const name=String(d.name||"").trim().toLowerCase();
  const row=TARGET_RANGES.find(x=>x[0].test(name));
@@ -570,6 +574,14 @@ function progressionAdvice(d){
  if(!d.logs?.length)return {good:false,title:`Startgewicht: ${fmt(d.weight)} kg`,text:`Zielbereich ${targetLabel(d)} Wiederholungen. Starte mit sauberer Technik.`};
  const last=d.logs[0],top=topSetWeight(last,d),step=Number(d.step)||0;
  const ready=progressionCheck(d,last);
+ if(isAssistedPullup(d)){
+   if(ready&&step>0){
+     const next=Math.max(0,top-step);
+     if(next<top)return {good:true,title:`📉 Nächstes Mal ${fmt(next)} kg Unterstützung testen`,text:`Die kg-Angabe ist Unterstützung, kein zusätzliches Trainingsgewicht. Alle schweren Arbeitssätze erreichten mindestens ${range.max} Wiederholungen. Reduziere die Hilfe um den kleinsten verfügbaren Schritt; bei weniger Unterstützung darfst du wieder am unteren Ende (${range.min}) beginnen.`};
+     return {good:false,title:"✅ Ohne Geräteunterstützung",text:"Die Unterstützung beträgt bereits 0 kg. Keine weitere Verringerung möglich."};
+   }
+   return {good:false,title:`➡️ ${fmt(top)} kg Unterstützung halten`,text:`Bei Klimmzügen bedeutet weniger kg mehr Eigenleistung. Ziel: ${targetLabel(d)} Wiederholungen in allen schweren Arbeitssätzen erreichen, erst dann die Unterstützung um den kleinsten Schritt senken. Bei Schwierigkeiten die Hilfe nicht vorschnell verringern.`};
+ }
  if(ready&&step>0)return {good:true,title:`📈 Nächstes Mal ${fmt(top+step)} kg testen`,text:`Alle dokumentierten schweren Arbeitssätze mit ${fmt(top)} kg erreichten mindestens ${range.max} Wiederholungen. Erhöhe um den kleinsten verfügbaren Schritt. Nach der Erhöhung sind ${range.min} Wiederholungen wieder ausreichend.`};
  return {good:false,title:`➡️ ${fmt(top)} kg halten`,text:`Ziel ${targetLabel(d)} Wiederholungen. Erst steigern, wenn alle schweren Arbeitssätze am höchsten Arbeitsgewicht mindestens ${range.max} saubere Wiederholungen erreichen. Aufwärmsätze mit weniger Gewicht zählen nicht mit.`};
 }
