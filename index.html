@@ -212,7 +212,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.8</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.9</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -1158,20 +1158,27 @@ function openOverview(){
   const activeOverview=state.devices.filter(d=>!isHiddenDevice(d));
   const hiddenOverview=state.devices.filter(d=>isHiddenDevice(d));
   const overviewRow=d=>{
-    const last=(d.logs||[])[0];
-    const lastText=last
-      ? `Zuletzt ${new Date(last.date).toLocaleDateString("de-DE")} · Top ${fmt(topSetWeight(last,d))} kg`
-      : "Noch kein Training";
-    return `<div class="summaryRow" data-device="${d.id}">
+    const last=lastLogDate(d);
+    let lastText;
+    if(last){
+      const days=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));
+      const relative=days===0?"Heute":days===1?"Gestern":`Vor ${days} Tagen`;
+      const date=last.toLocaleDateString("de-DE");
+      lastText=`<div style="font-weight:750;color:var(--text,#e8edf7);margin-top:6px">🕒 Zuletzt trainiert: ${date} <span style="opacity:.8;font-weight:600">(${relative})</span></div>`;
+    }else{
+      lastText=`<div style="font-weight:750;margin-top:6px;color:#e9ba42">🕒 Noch nie trainiert</div>`;
+    }
+    return `<div class="summaryRow" data-device="${esc(d.id)}">
       <div>
         <div class="summaryName">${esc(d.name)}</div>
-        <div class="summaryMeta">${esc(d.muscle)} · ${lastText}</div>
+        <div class="summaryMeta">${esc(d.muscle)}</div>
+        ${lastText}
       </div>
       <div class="summaryWeight">${fmt(d.weight)} kg ›</div>
     </div>`;
   };
   $("overviewSummary").innerHTML=state.devices.length
-    ? groupedDeviceHtml(activeOverview,overviewRow)+
+    ? activeOverview.map(overviewRow).join("")+
       (hiddenOverview.length
         ? `<details class="hiddenFolder">
             <summary><span>🙈 Ausgeblendet</span><b>${hiddenOverview.length}</b></summary>
