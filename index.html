@@ -207,12 +207,18 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 .hiddenFolderBody{padding:0 10px 10px}
 .hiddenFolderBody .summaryRow{background:#fff;opacity:.82}
 
+
+/* v7.0: readable device overview in light and dark mode */
+#overviewSummary .overviewMuscle{font-size:16px;font-weight:650;line-height:1.35;color:#485366;margin-top:5px}
+#overviewSummary .overviewLastTrained{font-size:15px;font-weight:800;line-height:1.4;color:#172033;margin-top:8px;letter-spacing:0}
+#overviewSummary .overviewLastRelative{font-weight:700;color:#344054;opacity:1}
+@media (prefers-color-scheme:dark){body:not(.light) #overviewSummary .overviewMuscle{color:#bac5d6}body:not(.light) #overviewSummary .overviewLastTrained{color:#f1f5fb}body:not(.light) #overviewSummary .overviewLastRelative{color:#d4deec}}
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v6.9</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.0</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -1164,14 +1170,14 @@ function openOverview(){
       const days=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));
       const relative=days===0?"Heute":days===1?"Gestern":`Vor ${days} Tagen`;
       const date=last.toLocaleDateString("de-DE");
-      lastText=`<div style="font-weight:750;color:var(--text,#e8edf7);margin-top:6px">🕒 Zuletzt trainiert: ${date} <span style="opacity:.8;font-weight:600">(${relative})</span></div>`;
+      lastText=`<div class="overviewLastTrained">🕒 Zuletzt trainiert: ${date} <span class="overviewLastRelative">(${relative})</span></div>`;
     }else{
-      lastText=`<div style="font-weight:750;margin-top:6px;color:#e9ba42">🕒 Noch nie trainiert</div>`;
+      lastText=`<div class="overviewLastTrained">🕒 Noch nie trainiert</div>`;
     }
     return `<div class="summaryRow" data-device="${esc(d.id)}">
       <div>
         <div class="summaryName">${esc(d.name)}</div>
-        <div class="summaryMeta">${esc(d.muscle)}</div>
+        <div class="summaryMeta overviewMuscle">${esc(d.muscle)}</div>
         ${lastText}
       </div>
       <div class="summaryWeight">${fmt(d.weight)} kg ›</div>
