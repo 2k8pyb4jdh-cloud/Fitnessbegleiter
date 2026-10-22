@@ -218,7 +218,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.2</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.3</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -425,6 +425,7 @@ function persist(){
 }
 function renderStats(){
   migrateTargetEight();
+  applyFourSetDefault();
   const logs=state.devices.reduce((a,d)=>a+(d.logs?.length||0),0);
   const ups=state.devices.reduce((a,d)=>a+(d.logs||[]).filter(x=>x.up).length,0);
   $("stDevices").textContent=state.devices.length;
@@ -433,6 +434,14 @@ function renderStats(){
 }
 
 
+const TRAINING_SETS=4;
+function trainingSetCount(){return TRAINING_SETS}
+function trainingSetLabel(i){return i===0?"Aufwärmsatz":"Arbeitssatz "+i}
+function applyFourSetDefault(){
+  let changed=false;
+  state.devices.forEach(d=>{if(Number(d.sets)!==TRAINING_SETS){d.sets=TRAINING_SETS;changed=true}});
+  if(changed)persist();
+}
 function repsArray(log,d){
   if(Array.isArray(log?.setReps)&&log.setReps.length)return log.setReps.map(x=>Number(x)||0);
   const sets=Math.max(1,Number(log?.sets)||Number(d?.sets)||1);
@@ -466,7 +475,7 @@ function setInputsHtml(prefix,sets,target,values,weightPrefix,weights,defaultWei
   const ws=Array.isArray(weights)&&weights.length?weights:Array.from({length:count},()=>defaultWeight);
   return `<div class="setRepGrid">${Array.from({length:count},(_,i)=>`
     <div>
-      <label>Satz ${i+1} · Gewicht (kg)</label>
+      <label>${trainingSetLabel(i)} · Gewicht (kg)</label>
       <input id="${weightPrefix}_${i}" type="number" inputmode="decimal" step=".5" min="0" value="${Number(ws[i]??defaultWeight)||0}">
       <label style="margin-top:6px">Wiederholungen</label>
       <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${reps[i]===undefined||reps[i]===null?"":reps[i]}">
@@ -498,7 +507,7 @@ function buildAnalysisPrompt(){
     "Du bist mein persönlicher Trainingsanalyst.",
     `Analysiere AUSSCHLIESSLICH meinen letzten Trainingstag: ${date}.`,
     "Bewerte ausschließlich die nachfolgend an diesem Tag tatsächlich trainierten Geräte und Leistungen.",
-    "Bewerte Gewicht UND Wiederholungen jedes einzelnen Satzes getrennt. Leichtere Aufwärmsätze nicht mit schweren Arbeitssätzen gleichsetzen.",
+    "Bewerte Gewicht UND Wiederholungen jedes einzelnen Satzes getrennt. Bei neu gespeicherten Einträgen ist Satz 1 ausdrücklich ein Aufwärmsatz; Sätze 2 bis 4 sind Arbeitssätze. Den Aufwärmsatz bei Progressionsentscheidungen nicht berücksichtigen. Bei älteren Einträgen keine Aufwärmsatz-Zuordnung erfinden.",
     "Gib pro trainiertem Gerät eine kurze, konkrete Bewertung und eine Empfehlung für das nächste Training.",
     "SONDERREGEL KLIMMZÜGE: Die erfassten Kilogramm sind Geräteunterstützung. WENIGER kg bedeutet höhere Belastung. Bei Erreichen des oberen Zielbereichs in allen schweren Arbeitssätzen ausschließlich für Klimmzüge eine Verringerung der Unterstützung um den kleinsten Schritt empfehlen, niemals eine Erhöhung. Für alle anderen Geräte gelten die normalen Steigerungsregeln.",
     "Nutze doppelte Progression: Gewicht erst erhöhen, wenn alle dokumentierten schweren Arbeitssätze das obere Ende des jeweiligen Zielbereichs mit sauberer Technik erreichen. Aufwärmsätze mit geringerem Gewicht nicht mitrechnen. Nach Steigerung darf die Wiederholungszahl zum unteren Ende zurückkehren.",
@@ -520,6 +529,7 @@ function buildAnalysisPrompt(){
     lines.push(`### ${i+1}. ${d.name} (${d.muscle})`);
     lines.push(`Reihenfolge: ${i+1} von ${entries.length}; gespeichert um: ${timeLabel} Uhr`);
     lines.push(`Sätze: ${setDetailText(log,d)}`);
+    if(log.warmupFirst===true)lines.push("Satz 1: Aufwärmsatz. Sätze 2–4: Arbeitssätze.");
     lines.push(isAssistedPullup(d)?`Klimmzug-Unterstützung (kg; weniger ist schwerer): ${setDetailText(log,d)}`:`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
     lines.push(`Zielbereich: ${targetLabel(d)} Wiederholungen pro schwerem Arbeitssatz; ${isAssistedPullup(d)?"Unterstützungsschritt (bei Fortschritt abziehen)":"Steigerungsschritt"}: ${fmt(d.step)} kg`);
     lines.push("");
@@ -580,9 +590,10 @@ function targetRange(d){
 function targetLabel(d){const r=targetRange(d);return r.min===r.max?String(r.max):`${r.min}–${r.max}`}
 function progressionCheck(d,log){
  const {max}=targetRange(d),weights=setWeightsArray(log,d),reps=repsArray(log,d);
- const top=Math.max(...weights,0);
- // Aufwärmsätze mit geringerem Gewicht zählen nicht zu den schweren Arbeitssätzen.
- const working=reps.filter((_,i)=>weights[i]===top);
+ // New 4-set sessions: first set is explicitly a warmup; legacy logs keep previous behavior.
+ const start=log?.warmupFirst===true?1:0;
+ const top=Math.max(...weights.slice(start),0);
+ const working=reps.filter((_,i)=>i>=start&&weights[i]===top);
  return working.length>0&&working.every(x=>x>=max);
 }
 function progressionAdvice(d){
@@ -834,7 +845,7 @@ function showEditDevice(id){
   $("muscle").value=d.muscle;
   $("weight").value=d.weight;
   $("step").value=d.step;
-  $("sets").value=d.sets;
+  $("sets").value=TRAINING_SETS;
   $("reps").value=d.reps;
   $("notes").value=d.notes||"";
   $("formTitle").textContent="Gerät bearbeiten";
@@ -1228,7 +1239,7 @@ async function showDevice(id){
     <div class="deviceHead">
       <div>
         <div class="title">${esc(d.name)}</div>
-        <div class="meta">${esc(d.muscle)} · Ziel ${d.sets} × ${targetLabel(d)} · +${fmt(d.step)} kg</div>
+        <div class="meta">${esc(d.muscle)} · Ziel ${TRAINING_SETS} × ${targetLabel(d)} · +${fmt(d.step)} kg</div>
         <div class="prBox">🏆 Bestleistung: ${fmt(bestWeight(d))} kg</div>
       </div>
       <div data-photo-slot="${d.id}"><div class="placeholder">${d.hasPhoto?"Foto<br>wird geladen":"Foto<br>folgt"}</div></div>
@@ -1244,7 +1255,7 @@ async function showDevice(id){
     <div class="grid">
       <div>
         <label>Sätze</label>
-        <input id="s_${d.id}" type="number" inputmode="numeric" value="${d.sets}" readonly>
+        <input id="s_${d.id}" type="number" inputmode="numeric" value="${TRAINING_SETS}" readonly>
       </div>
       <div>
         <label>Ziel-Wiederholungen</label>
@@ -1252,7 +1263,7 @@ async function showDevice(id){
       </div>
     </div>
     <label>Gewicht & Wiederholungen je Satz</label>
-    ${setInputsHtml("sr_"+d.id,d.sets,d.reps,null,"sw_"+d.id,null,d.weight)}
+    ${setInputsHtml("sr_"+d.id,TRAINING_SETS,d.reps,null,"sw_"+d.id,null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("detail")}
     <button class="full" id="saveTraining">Training speichern</button>
 
@@ -1300,7 +1311,7 @@ function resetForm(){
   $("muscle").value="Unbekannt";
   $("weight").value=20;
   $("step").value=2.5;
-  $("sets").value=3;
+  $("sets").value=TRAINING_SETS;
   $("reps").value=8;
   $("notes").value="";
   $("formTitle").textContent="Gerät hinzufügen";
@@ -1314,7 +1325,7 @@ function saveDevice(){
     muscle:$("muscle").value,
     weight:n($("weight").value,0),
     step:n($("step").value,2.5),
-    sets:n($("sets").value,3),
+    sets:TRAINING_SETS,
     reps:n($("reps").value,8),
     notes:$("notes").value.trim()
   };
@@ -1365,7 +1376,7 @@ function editTrainingLog(id,index){
 function saveTraining(id){
   const d=state.devices.find(x=>x.id===id);
   if(!d)return;
-  const s=d.sets;
+  const s=TRAINING_SETS;
   const setReps=readSetReps("sr_"+id,s,d.reps);
   const setWeights=readSetWeights("sw_"+id,s,d.weight);
   if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die tatsächlichen Wiederholungen aller Sätze eintragen.");return}
@@ -1382,6 +1393,7 @@ function saveTraining(id){
     reps:r,
     setReps:setReps,
     setWeights:setWeights,
+    warmupFirst:true,
     success:progressionCheck(d,{setWeights,setReps,weight:top}),
     up:top>old
   });
@@ -1462,11 +1474,11 @@ function showWorkoutStep(){
     <button class="muscleBtn" id="woMuscles">🧍 Muskeln anzeigen</button>
 
     <div class="grid" style="margin-top:14px">
-      <div><label style="color:#d1d5db">Sätze</label><input type="number" value="${d.sets}" readonly></div>
+      <div><label style="color:#d1d5db">Sätze</label><input type="number" value="${TRAINING_SETS}" readonly></div>
       <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${targetLabel(d)}" readonly></div>
     </div>
     <label style="color:#d1d5db">Gewicht & Wiederholungen je Satz</label>
-    ${setInputsHtml("woRep",d.sets,d.reps,null,"woWeight",null,d.weight)}
+    ${setInputsHtml("woRep",TRAINING_SETS,d.reps,null,"woWeight",null,d.weight)}
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("workout")}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
@@ -1478,7 +1490,7 @@ function showWorkoutStep(){
   $("woMuscles").onclick=()=>openMuscles(d.id,"workout");
   bindRestButtons($("workoutSession"));
   $("woSave").onclick=()=>{
-    const s=d.sets;
+    const s=TRAINING_SETS;
     const setReps=readSetReps("woRep",s,d.reps);
     if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die Wiederholungen aller Sätze eintragen.");return}
     const setWeights=readSetWeights("woWeight",s,d.weight);
@@ -1494,6 +1506,7 @@ function showWorkoutStep(){
       reps:r,
       setReps:setReps,
       setWeights:setWeights,
+      warmupFirst:true,
       success:progressionCheck(d,{setWeights,setReps,weight:top}),
       up:top>old
     });
