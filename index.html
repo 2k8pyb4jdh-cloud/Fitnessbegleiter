@@ -220,7 +220,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #overviewSummary .overviewLastRelative{font-weight:700;color:#344054;opacity:1}
 /* Die App hat einen hellen Hintergrund: kein systemabhängiger Helltext-Override. */
 
-/* v7.5: flexible training planner */
+/* v7.6: flexible training planner */
 #planConfigurator,#nextPlanDevices{color:#172033}
 .plannerLabel{display:block;font-size:15px;font-weight:800;color:#172033;margin:13px 0 8px}
 #plannerDate{width:100%;box-sizing:border-box;background:#fff;color:#172033;border:2px solid #94a3b8;border-radius:10px;padding:12px;font-size:16px}
@@ -238,7 +238,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.5</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.6</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -252,7 +252,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <div id="nextPlanCard" class="planCard"><h3>🏋️ Mein Training zusammenstellen</h3><div id="nextPlanSummary" class="small"></div><div id="planConfigurator"></div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="muscleGroupsHome" style="margin:12px 0"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <div id="nextPlanCard" class="planCard"><h3>🏋️ Mein Training zusammenstellen</h3><div id="nextPlanSummary" class="small"></div><div id="planConfigurator"></div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
 </div>
 
 
@@ -838,7 +838,6 @@ function showHome(){
   $("homeActions").style.display="block";
   window.scrollTo({top:0,behavior:"smooth"});
   renderNextPlan();
-  renderMuscleGroupsHome();
 }
 function showAddDevice(){
   planEntryMode=false;
@@ -1133,16 +1132,6 @@ function groupedDeviceHtml(devices,row){
   const matches=devices.filter(d=>bodyPartMatches(d,group));
   return matches.length?`<details class="hiddenFolder bodyGroup"><summary><span>${group}</span><b>${matches.length} ›</b></summary><div class="hiddenFolderBody">${matches.map(d=>row(d,group)).join("")}</div></details>`:"";
  }).join("");
-}
-function renderMuscleGroupsHome(){
- const box=$("muscleGroupsHome");if(!box)return;
- box.innerHTML=`<h3>🏋️ Übungen nach Körperteilen</h3><div class="small" style="margin-bottom:8px">Rot = Hauptmuskel · Gelb = unterstützend. Eine Übung kann in mehreren Gruppen stehen.</div>`+
- groupedDeviceHtml(activeDevices(),(d,group)=>{
-  const main=muscleInfo(d).main.map(x=>x.id);
-  const primary=(GROUP_MUSCLES[group]||[]).some(id=>main.includes(id));
-  return `<div class="summaryRow" data-home-device="${esc(d.id)}"><div class="summaryName">${esc(d.name)} <span title="${primary?'Hauptmuskel':'Unterstützender Muskel'}" style="color:${primary?'#ef4545':'#e9ba42'}">●</span></div><span>›</span></div>`;
- });
- box.querySelectorAll("[data-home-device]").forEach(el=>el.onclick=()=>showDevice(el.dataset.homeDevice));
 }
 function openOverview(){
   planEntryMode=false;
