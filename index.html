@@ -219,12 +219,26 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 #overviewSummary .overviewLastTrained{font-size:15px;font-weight:800;line-height:1.4;color:#172033;margin-top:8px;letter-spacing:0}
 #overviewSummary .overviewLastRelative{font-weight:700;color:#344054;opacity:1}
 /* Die App hat einen hellen Hintergrund: kein systemabhängiger Helltext-Override. */
+
+/* v7.5: flexible training planner */
+#planConfigurator,#nextPlanDevices{color:#172033}
+.plannerLabel{display:block;font-size:15px;font-weight:800;color:#172033;margin:13px 0 8px}
+#plannerDate{width:100%;box-sizing:border-box;background:#fff;color:#172033;border:2px solid #94a3b8;border-radius:10px;padding:12px;font-size:16px}
+.plannerGroups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.plannerGroup{background:#f1f5f9;color:#172033;border:2px solid #cbd5e1;border-radius:10px;padding:11px 7px;font-size:13px;font-weight:750}
+.plannerGroup.chosen{background:#dcfce7;color:#14532d;border-color:#16a34a}
+.plannerHeading{font-size:16px;margin:17px 0 8px;color:#172033}
+.plannerExercise{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;margin:7px 0;color:#172033;cursor:pointer}
+.plannerExercise input{flex:0 0 auto;width:21px;height:21px;margin:2px 0;accent-color:#15803d}
+.plannerExercise span{display:block;min-width:0}.plannerExercise small{display:block;color:#475569;font-size:12px;line-height:1.5;margin-top:3px}
+.plannerSaved{border:2px solid #16a34a;border-radius:12px;background:#f0fdf4;color:#14532d;padding:12px;margin:14px 0}
+.plannerSaved .planDevice{color:#172033}
 </style>
 </head>
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.4</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.5</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -238,7 +252,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 </div>
 
 <div id="homeActions" class="card">
-  <div id="nextPlanCard" class="planCard"><h3>🗓️ Nächstes Training</h3><div id="nextPlanSummary" class="small">Plan wird berechnet…</div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="muscleGroupsHome" style="margin:12px 0"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
+  <div id="nextPlanCard" class="planCard"><h3>🏋️ Mein Training zusammenstellen</h3><div id="nextPlanSummary" class="small"></div><div id="planConfigurator"></div><div id="nextPlanDevices"></div><div class="planActions"><button class="secondary" id="openPlanCalendar">Im Kalender anzeigen</button></div></div><div id="muscleGroupsHome" style="margin:12px 0"></div><button class="full" id="startWorkoutBtn">Training starten 💪</button><button class="secondary full" id="calendarBtn" style="margin-top:10px">📅 Trainingskalender</button><button class="secondary full" id="aiAnalysisBtn" style="margin-top:10px">🤖 KI-Auswertung</button>
 </div>
 
 
@@ -871,23 +885,18 @@ function savePlanSession(p){
   try{localStorage.setItem(PLAN_KEY,JSON.stringify(p));return true}catch(e){return false}
 }
 function isTrainingDay(d=new Date()){return TRAIN_DAYS.includes(d.getDay())}
+const CUSTOM_PLAN_KEY="fitnessbegleiter_custom_plans_v1";
+function customPlans(){try{return JSON.parse(localStorage.getItem(CUSTOM_PLAN_KEY)||"{}")||{}}catch(e){return {}}}
+function getCustomPlan(k){return customPlans()[k]||null}
+function saveCustomPlan(k,p){const all=customPlans();all[k]=p;localStorage.setItem(CUSTOM_PLAN_KEY,JSON.stringify(all))}
 function getTodayPlanSession(){
-  const today=dateKey(new Date());
-  if(!isTrainingDay(new Date()))return null;
-  let p=loadPlanSession();
-  if(!p||p.date!==today)p={date:today,deviceIds:plannedDevices(new Date()).map(d=>d.id),completed:[],createdAt:new Date().toISOString()};
-  p.deviceIds=p.deviceIds.filter(id=>state.devices.some(d=>d.id===id&&!isHiddenDevice(d)));
-  const doneFromLogs=state.devices.filter(d=>(d.logs||[]).some(l=>dateKey(l.date)===today)).map(d=>d.id);
-  p.completed=[...new Set([...(p.completed||[]),...doneFromLogs])].filter(id=>p.deviceIds.includes(id));
-  savePlanSession(p);
-  return p;
+ const today=dateKey(new Date());const saved=getCustomPlan(today);if(!saved)return null;
+ const ids=(saved.deviceIds||[]).filter(id=>state.devices.some(d=>d.id===id&&!isHiddenDevice(d)));
+ const fromLogs=state.devices.filter(d=>(d.logs||[]).some(l=>dateKey(l.date)===today)).map(d=>d.id);
+ const completed=ids.filter(id=>fromLogs.includes(id));
+ return {date:today,deviceIds:ids,completed};
 }
-function markPlanDeviceDone(id){
-  const p=getTodayPlanSession();
-  if(!p || !p.deviceIds.includes(id))return;
-  if(!p.completed.includes(id))p.completed.push(id);
-  savePlanSession(p);
-}
+function markPlanDeviceDone(id){/* Completion derives from saved workout logs. */}
 function openPlannedDevice(id){
   planEntryMode=true;
   showDevice(id);
@@ -980,71 +989,41 @@ function plannedDevices(date){
  return chosen.slice(0,7);
 }
 function planReason(d){const last=lastLogDate(d);if(!last)return "Noch kein Training gespeichert";const gap=Math.max(0,Math.floor((dayOnly(new Date())-dayOnly(last))/86400000));if(gap>=14)return `Priorität: seit ${gap} Tagen nicht trainiert`;if(gap>=8)return `Seit ${gap} Tagen nicht trainiert`;return `Zuletzt vor ${gap} Tagen · ${recentUseCount(d,21)}× in 3 Wochen`}
-function renderNextPlan(){
-  if(!$("nextPlanCard"))return;
-  if(!state.devices.length){
-    $("nextPlanSummary").textContent="Noch keine Geräte vorhanden.";
-    $("nextPlanDevices").innerHTML="";
-    return;
-  }
-
-  const now=new Date(), todayTraining=isTrainingDay(now);
-  const d=todayTraining?dayOnly(now):nextTrainingDate(now,true);
-  let items=[], completed=[];
-
-  if(todayTraining){
-    const session=getTodayPlanSession();
-    completed=session?.completed||[];
-    items=(session?.deviceIds||[]).map(id=>state.devices.find(x=>x.id===id)).filter(Boolean);
-    const remaining=items.filter(x=>!completed.includes(x.id));
-    const done=items.length-remaining.length;
-    const pct=items.length?Math.round(done/items.length*100):0;
-
-    const split=splitForDate(d);
-    $("nextPlanSummary").innerHTML=
-      `<b>Heute · ${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit"})}</b>`+
-      `<div class="splitTag">${split.label}</div>`+
-      `<div class="planProgress"><span style="width:${pct}%"></span></div>`+
-      `<div class="planHint">${done} von ${items.length} Geräten erledigt · Tippe auf das nächste Gerät.</div>`;
-
-    if(!remaining.length){
-      $("nextPlanDevices").innerHTML=`<div class="planDone">✅ Training für heute komplett! 💪</div>`;
-      return;
-    }
-
-    $("nextPlanDevices").innerHTML=remaining.map(x=>{
-      const last=lastLogDate(x);
-      const gap=last?Math.floor((dayOnly(now)-dayOnly(last))/86400000):999;
-      return `<div class="planDevice planTap" data-plan-device="${x.id}">
-        <div><b>${esc(x.name)}</b><div class="planReason">${planReason(x)}</div></div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="planBadge ${gap>=14?"planWarn":""}">${gap===999?"NEU":gap+" Tage"}</span>
-          <span class="planOpen">›</span>
-        </div>
-      </div>`;
-    }).join("");
-
-    $("nextPlanDevices").querySelectorAll("[data-plan-device]").forEach(el=>{
-      el.onclick=()=>openPlannedDevice(el.dataset.planDevice);
-    });
-  }else{
-    items=plannedDevices(d);
-    const split=splitForDate(d);
-    $("nextPlanSummary").innerHTML=
-      `<b>${d.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit"})}</b> · ${items.length} vorgeschlagene Geräte`+
-      `<div class="splitTag">${split.label}</div>`+
-      `<div class="planHint">Vorschau. Am Trainingstag kannst du die Geräte hier direkt nacheinander abarbeiten.</div>`;
-
-    $("nextPlanDevices").innerHTML=items.map(x=>{
-      const last=lastLogDate(x),gap=last?Math.floor((dayOnly(now)-dayOnly(last))/86400000):999;
-      return `<div class="planDevice">
-        <div><b>${esc(x.name)}</b><div class="planReason">${planReason(x)}</div></div>
-        <span class="planBadge ${gap>=14?"planWarn":""}">${gap===999?"NEU":gap+" Tage"}</span>
-      </div>`;
-    }).join("");
-  }
+let plannerDate=dateKey(new Date(Date.now()+86400000));
+let plannerGroups=[];
+let plannerChosen=[];
+{const initial=getCustomPlan(plannerDate);if(initial){plannerGroups=[...(initial.groups||[])];plannerChosen=[...(initial.deviceIds||[])]}}
+function plannerCandidates(){
+ const all=activeDevices();
+ return all.filter(d=>plannerGroups.some(g=>bodyPartMatches(d,g))).map(d=>{
+  const info=muscleInfo(d),m=info.main.map(x=>x.id),b=info.secondary.map(x=>x.id);
+  const primary=plannerGroups.filter(g=>(GROUP_MUSCLES[g]||[]).some(id=>m.includes(id)));
+  const secondary=plannerGroups.filter(g=>(GROUP_MUSCLES[g]||[]).some(id=>b.includes(id)));
+  const score=primary.length*100+secondary.length*35+devicePlanScore(d);
+  return {d,primary,secondary,score};
+ }).sort((a,b)=>b.score-a.score);
 }
-function plannedForKey(k){const d=new Date(k+"T12:00:00");return TRAIN_DAYS.includes(d.getDay())&&d>=dayOnly(new Date())}
+function renderNextPlan(){
+ const box=$("planConfigurator"),summary=$("nextPlanSummary"),list=$("nextPlanDevices");if(!box)return;
+ const saved=getCustomPlan(plannerDate);
+ summary.innerHTML='<div class="planHint">Wähle einen Trainingstag und die Muskelbereiche. Du entscheidest anschließend selbst, welche vorgeschlagenen Geräte in deinen Plan kommen. Haupt- und Hilfsmuskeln werden berücksichtigt.</div>';
+ box.innerHTML=`<label class="plannerLabel" for="plannerDate">Wann möchtest du trainieren?</label><input id="plannerDate" type="date" value="${plannerDate}" min="${dateKey(new Date())}"><div class="plannerLabel">Welche Bereiche möchtest du trainieren?</div><div class="plannerGroups">${BODY_GROUPS.map(g=>`<button type="button" class="plannerGroup ${plannerGroups.includes(g)?'chosen':''}" data-group="${esc(g)}" aria-pressed="${plannerGroups.includes(g)}">${esc(g)}</button>`).join('')}</div><div class="planHint">🔴 Hauptmuskel · 🟡 unterstützender Muskel. Geräte mit mehreren passenden Bereichen stehen weiter oben.</div>`;
+ $("plannerDate").onchange=e=>{plannerDate=e.target.value;plannerGroups=[];plannerChosen=[];const p=getCustomPlan(plannerDate);if(p){plannerGroups=[...(p.groups||[])];plannerChosen=[...(p.deviceIds||[])]}renderNextPlan()};
+ box.querySelectorAll('[data-group]').forEach(el=>el.onclick=()=>{const g=el.dataset.group;plannerGroups=plannerGroups.includes(g)?plannerGroups.filter(x=>x!==g):[...plannerGroups,g];plannerChosen=[];renderNextPlan()});
+ const candidates=plannerCandidates();
+ if(!plannerGroups.length){list.innerHTML='<p class="planHint">Wähle oben mindestens einen Muskelbereich aus.</p>';return}
+ list.innerHTML=`<h4 class="plannerHeading">Anklickbare Übungsvorschläge (${candidates.length})</h4>`+ (candidates.length?candidates.map(({d,primary,secondary})=>`<label class="plannerExercise"><input type="checkbox" data-pick="${esc(d.id)}" ${plannerChosen.includes(d.id)?'checked':''}><span><b>${esc(d.name)}</b><small>${primary.length?'🔴 '+esc(primary.join(', ')):''}${secondary.length?' 🟡 '+esc(secondary.join(', ')):''}</small><small>${esc(planReason(d))}</small></span></label>`).join(''):'<p>Keine passenden eingeblendeten Geräte gefunden.</p>')+`<div class="planActions"><button id="plannerSave" class="full" type="button">💾 Meine Auswahl speichern (${plannerChosen.length})</button></div>`;
+ list.querySelectorAll('[data-pick]').forEach(el=>el.onchange=()=>{plannerChosen=Array.from(list.querySelectorAll('[data-pick]:checked')).map(x=>x.dataset.pick);$("plannerSave").textContent=`💾 Meine Auswahl speichern (${plannerChosen.length})`});
+ $("plannerSave").onclick=()=>{if(!plannerChosen.length){alert('Bitte mindestens ein Gerät auswählen.');return}saveCustomPlan(plannerDate,{groups:[...plannerGroups],deviceIds:[...plannerChosen]});renderNextPlan()};
+ if(saved){
+  const ids=(saved.deviceIds||[]).filter(id=>state.devices.some(d=>d.id===id&&!isHiddenDevice(d)));
+  const isToday=plannerDate===dateKey(new Date());
+  const done=isToday?(getTodayPlanSession()?.completed||[]):[];
+  list.insertAdjacentHTML('afterbegin',`<div class="plannerSaved"><b>✅ Gespeicherter Plan für ${new Date(plannerDate+'T12:00:00').toLocaleDateString('de-DE')}</b><div class="planHint">${done.length} von ${ids.length} Geräten erledigt${isToday?' · Geräte zum Trainieren antippen':''}</div>${ids.map(id=>{const d=state.devices.find(x=>x.id===id);return `<div class="planDevice ${isToday&&!done.includes(id)?'planTap':''}" ${isToday&&!done.includes(id)?`data-plan-device="${esc(id)}"`:''}><span>${done.includes(id)?'✓ ':''}${esc(d.name)}</span>${isToday&&!done.includes(id)?'<span class="planOpen">›</span>':''}</div>`}).join('')}</div>`);
+  list.querySelectorAll('[data-plan-device]').forEach(el=>el.onclick=()=>openPlannedDevice(el.dataset.planDevice));
+ }
+}
+function plannedForKey(k){return !!getCustomPlan(k)&&new Date(k+"T12:00:00")>=dayOnly(new Date())}
 function dateKey(v){
   const d=new Date(v), y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
   return `${y}-${m}-${day}`;
@@ -1101,7 +1080,7 @@ function showCalendarDay(k,map=trainingDays()){
   const label=new Date(k+"T12:00:00").toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"});
   $("calendarDayDetail").innerHTML=rows.length
     ? `<b>${label}</b><br>${rows.map(x=>`${esc(x.device.name)} · <b>${setDetailText(x.log,x.device)}</b>`).join("<br>")}`
-    : plannedForKey(k) ? `<b>${label}</b><br><b>Geplanter Trainingstag</b><br><span class="splitTag">${splitForDate(new Date(k+"T12:00:00")).label}</span><br><br>${plannedDevices(new Date(k+"T12:00:00")).map(x=>`• ${esc(x.name)} <span class="planReason">(${planReason(x)})</span>`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
+    : plannedForKey(k) ? `<b>${label}</b><br><b>Dein Trainingsplan</b><br><br>${(getCustomPlan(k)?.deviceIds||[]).map(id=>state.devices.find(d=>d.id===id)).filter(Boolean).map(x=>`• ${esc(x.name)}`).join("<br>")}` : `<b>${label}</b><br>Kein Training gespeichert.`;
 }
 function timerText(s){return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`}
 function paintTimer(){
@@ -1406,7 +1385,7 @@ function saveTraining(id){
   });
 
   if(persist()){
-if(planEntryMode && isTrainingDay(new Date())){
+if(planEntryMode && getTodayPlanSession()){
       markPlanDeviceDone(id);
       showHome();
     }else{
@@ -1444,7 +1423,9 @@ function startWorkout(){
     alert("Lege zuerst mindestens ein Gerät an.");
     return;
   }
-  workout={active:true,index:0,deviceIds:state.devices.map(d=>d.id)};
+  const today=getTodayPlanSession();const ids=today?today.deviceIds.filter(id=>!today.completed.includes(id)):plannerDate===dateKey(new Date())?plannerChosen:[];
+  if(!ids.length){alert("Bitte stelle zuerst für heute einen Trainingsplan zusammen und speichere ihn.");return;}
+  workout={active:true,index:0,deviceIds:ids};
   showWorkoutStep();
 }
 function showWorkoutStep(){
@@ -1552,7 +1533,7 @@ $("startWorkoutBtn").onclick=startWorkout;
 $("muscleClose").onclick=closeMuscles;
 $("muscleCloseTop").onclick=closeMuscles;
 
-$("openPlanCalendar").onclick=()=>{const d=nextTrainingDate(new Date(),true);calCursor=new Date(d.getFullYear(),d.getMonth(),1);openCalendar();setTimeout(()=>showCalendarDay(dateKey(d)),0)};
+$("openPlanCalendar").onclick=()=>{const d=new Date(plannerDate+"T12:00:00");calCursor=new Date(d.getFullYear(),d.getMonth(),1);openCalendar();setTimeout(()=>showCalendarDay(dateKey(d)),0)};
 $("calendarBtn").onclick=openCalendar;
 $("closeCalendar").onclick=showHome;
 $("calPrev").onclick=()=>{calCursor=new Date(calCursor.getFullYear(),calCursor.getMonth()-1,1);renderCalendar()};
