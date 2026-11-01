@@ -241,7 +241,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.7</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v7.8</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -647,6 +647,7 @@ function muscleInfo(d){
   const S=(id,label)=>{if(!main.some(x=>x.id===id)&&!secondary.some(x=>x.id===id))secondary.push({id,label})};
 
   const exact=[
+    [/^(?:hack[ -]?squat|hackenschmidt(?:[ -]?kniebeuge)?|hack[ -]?squat[ -]?maschine)(?:\s*\(.*\))?$/,()=>{subtitle="Hack Squat · Quadrizeps";M("quads","Quadrizeps");S("glutes","Gesäß");S("adductors","Adduktoren");S("calves","Waden (stabilisierend)");}],
     [/^trizeps(?: \(kabelzug\))?$/,()=>{subtitle="Armstrecker · Trizeps";M("triceps","Trizeps");}],
     [/^bizeps(?: \(kabelzug\))?$/,()=>{subtitle="Armbeuger · Bizeps";M("biceps","Bizeps");S("brachialis","Brachialis");S("forearms","Unterarmmuskulatur");}],
     [/^incline press$/,()=>{subtitle="Schrägbankdrücken · obere Brust";M("upperchest","oberer Anteil der Brustmuskulatur");S("frontdelts","vordere Schulter");S("triceps","Trizeps");}],
@@ -731,6 +732,10 @@ function muscleSvgLegacy(info){
 function muscleSvg(info,d){
   const n=((d&&d.name)||"").trim().toLowerCase();
   const files={
+    "hack squat":"hack-squat.png",
+    "hack squat maschine":"hack-squat.png",
+    "hackenschmidt":"hack-squat.png",
+    "hackenschmidt-kniebeuge":"hack-squat.png",
     "trizeps":"trizeps.png",
     "bizeps":"bizeps.png",
     "incline press":"incline-press.png",
@@ -763,7 +768,7 @@ function muscleSvg(info,d){
     "cable rotation":"cable-rotation.png",
     "hip adduktion":"hip-adduktion.png"
   };
-  const file=files[n] || (/klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
+  const file=files[n] || (/hack[ -]?squat|hackenschmidt/i.test(n) ? "hack-squat.png" : /klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
   if(!file) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
   return `<div class="singleMuscleCard">
     <img class="singleMuscleImage" src="assets/muscles/${file}" alt="Trainierte Muskeln – ${esc((d&&d.name)||"Gerät")}">
