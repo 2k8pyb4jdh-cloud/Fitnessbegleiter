@@ -241,7 +241,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v8.5</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v8.6</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -497,13 +497,31 @@ function setInputsHtml(prefix,sets,target,values,weightPrefix,weights,defaultWei
   const reps=Array.isArray(values)&&values.length?values:Array.from({length:count},()=>"");
   const ws=Array.isArray(weights)&&weights.length?weights:Array.from({length:count},()=>defaultWeight);
   return `<div class="setRepGrid">${Array.from({length:count},(_,i)=>`
-    <div class="${i===0&&count===4?'warmupSet':'workSet'}">
+    <div class="${i===0?'warmupSet':'workSet'}">
       <div class="setHeading">${trainingSetLabel(i)}</div>
       <div><label>Gewicht (kg)</label>
       <input id="${weightPrefix}_${i}" type="number" inputmode="decimal" step=".5" min="0" value="${Number(ws[i]??defaultWeight)||0}"></div>
       <div><label>Wiederholungen</label>
       <input id="${prefix}_${i}" type="number" inputmode="numeric" min="0" value="${reps[i]===undefined||reps[i]===null?"":reps[i]}"></div>
     </div>`).join("")}</div>`;
+}
+// Zusätzliche Arbeitssätze nur für das aktuelle Training; keine Änderung der Gerätevorgaben.
+function appendTrainingSet(containerId,repPrefix,weightPrefix,defaultWeight,countInputId){
+  const container=$(containerId);
+  const grid=container?.querySelector(".setRepGrid");
+  if(!grid)return;
+  const i=grid.children.length;
+  if(i>=20){alert("Maximal 20 Sätze pro Training.");return}
+  const card=document.createElement("div");
+  card.className="workSet";
+  card.innerHTML=`<div class="setHeading">${trainingSetLabel(i)}</div>
+    <div><label>Gewicht (kg)</label><input id="${weightPrefix}_${i}" type="number" inputmode="decimal" step=".5" min="0" value="${Number(defaultWeight)||0}"></div>
+    <div><label>Wiederholungen</label><input id="${repPrefix}_${i}" type="number" inputmode="numeric" min="0" value=""></div>`;
+  grid.appendChild(card);
+  if(countInputId && $(countInputId))$(countInputId).value=i+1;
+}
+function currentTrainingSetCount(containerId){
+  return $(containerId)?.querySelectorAll(".setRepGrid > div").length||TRAINING_SETS;
 }
 function readSetReps(prefix,sets,target){
   const count=Math.max(1,Number(sets)||1);
@@ -553,7 +571,7 @@ function buildAnalysisPrompt(){
     lines.push(`### ${i+1}. ${d.name} (${d.muscle})`);
     lines.push(`Reihenfolge: ${i+1} von ${entries.length}; gespeichert um: ${timeLabel} Uhr`);
     lines.push(`Sätze: ${setDetailText(log,d)}`);
-    if(log.warmupFirst===true)lines.push("Satz 1: Aufwärmsatz. Sätze 2–4: Arbeitssätze.");
+    if(log.warmupFirst===true)lines.push("Satz 1: Aufwärmsatz. Alle folgenden Sätze: Arbeitssätze.");
     lines.push(isAssistedPullup(d)?`Klimmzug-Unterstützung (kg; weniger ist schwerer): ${setDetailText(log,d)}`:`Höchstes Satzgewicht: ${fmt(topSetWeight(log,d))} kg`);
     lines.push(`Zielbereich: ${targetLabel(d)} Wiederholungen pro schwerem Arbeitssatz; ${isAssistedPullup(d)?"Unterstützungsschritt (bei Fortschritt abziehen)":"Steigerungsschritt"}: ${fmt(d.step)} kg`);
     lines.push("");
@@ -1247,7 +1265,8 @@ async function showDevice(id){
       </div>
     </div>
     <label>Gewicht & Wiederholungen je Satz</label>
-    ${setInputsHtml("sr_"+d.id,TRAINING_SETS,d.reps,null,"sw_"+d.id,null,d.weight)}
+    <div id="detailTrainingSets">${setInputsHtml("sr_"+d.id,TRAINING_SETS,d.reps,null,"sw_"+d.id,null,d.weight)}</div>
+    <button class="secondary full" type="button" id="addDetailSet">＋ Weiteren Arbeitssatz hinzufügen</button>
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("detail")}
     <button class="full" id="saveTraining">Training speichern</button>
 
@@ -1270,6 +1289,7 @@ async function showDevice(id){
   </div>`;
 
   $("deviceList").querySelectorAll("[data-edit-log]").forEach(el=>el.onclick=()=>editTrainingLog(d.id,Number(el.dataset.editLog)));
+  $("addDetailSet").onclick=()=>appendTrainingSet("detailTrainingSets","sr_"+d.id,"sw_"+d.id,d.weight,"s_"+d.id);
   $("saveTraining").onclick=()=>saveTraining(d.id);
   $("showMuscles").onclick=()=>openMuscles(d.id,"detail");
   $("editDevice").onclick=()=>showEditDevice(d.id);
@@ -1360,7 +1380,7 @@ function editTrainingLog(id,index){
 function saveTraining(id){
   const d=state.devices.find(x=>x.id===id);
   if(!d)return;
-  const s=TRAINING_SETS;
+  const s=currentTrainingSetCount("detailTrainingSets");
   const setReps=readSetReps("sr_"+id,s,d.reps);
   const setWeights=readSetWeights("sw_"+id,s,d.weight);
   if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die tatsächlichen Wiederholungen aller Sätze eintragen.");return}
@@ -1464,7 +1484,8 @@ function showWorkoutStep(){
       <div><label style="color:#d1d5db">Ziel-Wiederholungen</label><input type="number" value="${targetLabel(d)}" readonly></div>
     </div>
     <label style="color:#d1d5db">Gewicht & Wiederholungen je Satz</label>
-    ${setInputsHtml("woRep",TRAINING_SETS,d.reps,null,"woWeight",null,d.weight)}
+    <div id="workoutTrainingSets">${setInputsHtml("woRep",TRAINING_SETS,d.reps,null,"woWeight",null,d.weight)}</div>
+    <button class="secondary full" type="button" id="addWorkoutSet">＋ Weiteren Arbeitssatz hinzufügen</button>
     <div class="small">Pausentimer starten:</div>${timerButtonsHtml("workout")}
     <button class="full" id="woSave">Speichern & weiter</button>
     <div class="sessionNav">
@@ -1475,8 +1496,9 @@ function showWorkoutStep(){
 
   $("woMuscles").onclick=()=>openMuscles(d.id,"workout");
   bindRestButtons($("workoutSession"));
+  $("addWorkoutSet").onclick=()=>appendTrainingSet("workoutTrainingSets","woRep","woWeight",d.weight);
   $("woSave").onclick=()=>{
-    const s=TRAINING_SETS;
+    const s=currentTrainingSetCount("workoutTrainingSets");
     const setReps=readSetReps("woRep",s,d.reps);
     if(setReps.some(x=>!Number.isInteger(x)||x<0)){alert("Bitte die Wiederholungen aller Sätze eintragen.");return}
     const setWeights=readSetWeights("woWeight",s,d.weight);
