@@ -241,7 +241,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v8.7</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v9.0</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -670,6 +670,7 @@ function muscleInfo(d){
 
   const exact=[
     [/^(?:hack[ -]?squat|hackenschmidt(?:[ -]?kniebeuge)?|hack[ -]?squat[ -]?maschine)(?:\s*\(.*\))?$/,()=>{subtitle="Hack Squat · Quadrizeps";M("quads","Quadrizeps");S("glutes","Gesäß");S("adductors","Adduktoren");S("calves","Waden (stabilisierend)");}],
+    [/^(?:beinpresse|leg[ -]?press|45[° ]*beinpresse|horizontale beinpresse|sitzende beinpresse)(?:\s*\(.*\))?$/,()=>{subtitle="Beinpresse · Oberschenkel & Gesäß";M("quads","Quadrizeps (vorderer Oberschenkel)");S("glutes","Großer Gesäßmuskel");S("adductors","Adduktoren (unterstützend)");}],
     [/^trizeps(?: \(kabelzug\))?$/,()=>{subtitle="Armstrecker · Trizeps";M("triceps","Trizeps");}],
     [/^bizeps(?: \(kabelzug\))?$/,()=>{subtitle="Armbeuger · Bizeps";M("biceps","Bizeps");S("brachialis","Brachialis");S("forearms","Unterarmmuskulatur");}],
     [/^incline press$/,()=>{subtitle="Schrägbankdrücken · obere Brust";M("upperchest","oberer Anteil der Brustmuskulatur");S("frontdelts","vordere Schulter");S("triceps","Trizeps");}],
@@ -701,7 +702,8 @@ function muscleInfo(d){
   }
   if(!hit){
     const t=(raw+" "+(d.muscle||"")).toLowerCase();
-    if(/leg extension|beinstrecker/.test(t)){subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}
+    if(/beinpresse|leg[ -]?press/.test(t)){subtitle="Beinpresse · Oberschenkel & Gesäß";M("quads","Quadrizeps (vorderer Oberschenkel)");S("glutes","Großer Gesäßmuskel");S("adductors","Adduktoren (unterstützend)");}
+    else if(/leg extension|beinstrecker/.test(t)){subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}
     else if(/leg curl|beinbeuger/.test(t)){subtitle="Beinbeuger";M("hamstrings","Beinbeuger");}
     else if(/bizeps|biceps|curl/.test(t)){subtitle="Armbeuger · Bizeps";M("biceps","Bizeps");S("forearms","Unterarm");}
     else if(/trizeps|triceps|pushdown/.test(t)){subtitle="Armstrecker · Trizeps";M("triceps","Trizeps");}
@@ -754,6 +756,8 @@ function muscleSvgLegacy(info){
 function muscleSvg(info,d){
   const n=((d&&d.name)||"").trim().toLowerCase();
   const files={
+    "beinpresse":"beinpresse.png",
+    "leg press":"beinpresse.png",
     "hack squat":"hack-squat.png",
     "hack squat maschine":"hack-squat.png",
     "hackenschmidt":"hack-squat.png",
@@ -790,7 +794,7 @@ function muscleSvg(info,d){
     "cable rotation":"cable-rotation.png",
     "hip adduktion":"hip-adduktion.png"
   };
-  const file=files[n] || (/hack[ -]?squat|hackenschmidt/i.test(n) ? "hack-squat.png" : /klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
+  const file=files[n] || (/beinpresse|leg[ -]?press/i.test(n) ? "beinpresse.png" : /hack[ -]?squat|hackenschmidt/i.test(n) ? "hack-squat.png" : /klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
   if(!file) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
   return `<div class="singleMuscleCard">
     <img class="singleMuscleImage" src="assets/muscles/${file}" alt="Trainierte Muskeln – ${esc((d&&d.name)||"Gerät")}">
@@ -803,11 +807,13 @@ function openMuscles(id,from="detail"){
   const info=muscleInfo(d);
   $("muscleTitle").textContent=`Trainierte Muskeln – ${d.name}`;
   $("muscleTitle").insertAdjacentHTML("beforeend",`<small class="muscleSubtitle">${info.subtitle}</small>`);
+  const isLegPress=/beinpresse|leg[ -]?press/i.test(d.name||"");
+  const legPressInfo=isLegPress?`<div class="muscleInfo"><b>Beinpresse – Ausführung</b><ol><li>Sitz und Rückenlehne einstellen; Rücken und Becken bleiben an der Lehne.</li><li>Füße etwa schulterbreit auf die Plattform stellen, Knie in Richtung der Zehen ausrichten.</li><li>Gewicht kontrolliert absenken, nur so tief wie das Becken stabil bleibt.</li><li>Plattform gleichmäßig wegdrücken, Knie oben nicht ruckartig durchstrecken.</li></ol><b>Techniktipps</b><div>Fersen auf der Plattform lassen, Knie nicht nach innen fallen lassen und keinen Schwung nutzen. Bewegungstiefe an Gerät und Beweglichkeit anpassen.</div><br><b>Belastung</b><div>Aufwärmsatz mit 50 % des eingetragenen Arbeitsgewichts; danach drei Arbeitssätze. Weitere Arbeitssätze sind bei Bedarf hinzufügbar.</div></div>`:"";
   $("muscleBody").innerHTML=`<div class="muscleStage">${muscleSvg(info,d)}
       <div class="muscleColorKey"><span><i class="keyMain"></i> Hauptmuskel</span><span><i class="keySec"></i> unterstützend</span></div>
     </div>
     <div class="muscleInfo"><b>Hauptmuskel</b><div>${info.main.map(x=>x.label).join("<br>")}</div>
-    ${info.secondary.length?`<br><b class="secondaryMuscle">Unterstützende Muskeln</b><div>${info.secondary.map(x=>x.label).join("<br>")}</div>`:""}</div>`;
+    ${info.secondary.length?`<br><b class="secondaryMuscle">Unterstützende Muskeln</b><div>${info.secondary.map(x=>x.label).join("<br>")}</div>`:""}</div>${legPressInfo}`;
   $("muscleView").style.display="block";
   document.body.style.overflow="hidden";
 }
