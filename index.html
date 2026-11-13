@@ -241,7 +241,7 @@ nav div{max-width:720px;margin:auto;display:flex;gap:8px}nav button{flex:1}
 <body>
 <main>
 <h1>Fitnessbegleiter 💪</h1>
-<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v9.0</span></div>
+<div class="sub">Dein Training. Deine Geräte. Dein Fortschritt. <span style="font-size:11px">v9.1</span></div>
 <div class="stats"><div class="stat clickable" id="devicesStat" role="button" tabindex="0"><b id="stDevices">0</b><span class="small">Geräte</span></div><div class="stat"><b id="stLogs">0</b><span class="small">Einträge</span></div><div class="stat"><b id="stUps">0</b><span class="small">Steigerungen</span></div></div>
 <div class="card" id="mainOverview" style="display:none">
 <button class="secondary backBtn" id="closeMainOverview">← Zurück</button>
@@ -422,10 +422,18 @@ async function load(){
     if(typeof d.hasPhoto!=="boolean")d.hasPhoto=!!d.photo;
   }
   await migrateLegacyPhotos();
+  ensureLowRowDevice();
   // Zielbereiche werden dynamisch anhand der Gerätenamen angewendet. Keine historischen Daten überschreiben.
   applyV52HiddenMigration();
   renderStats();
   showHome();
+}
+function ensureLowRowDevice(){
+  // Existing workout history and device settings are never overwritten.
+  if(!state || !Array.isArray(state.devices))return;
+  if(state.devices.some(d=>/^(?:low[ -]?row|low[ -]?row[ -]?maschine|low[ -]?row[ -]?rudern|tiefes rudern)(?:\s*\(.*\))?$/i.test(String(d.name||"").trim())))return;
+  state.devices.push({id:uid(),name:"Low Row",muscle:"Rücken",weight:20,step:2.5,sets:4,reps:8,notes:"Hebelgeführtes Rudern mit Brustpolster. Arbeitsgewicht individuell einstellen; Aufwärmsatz mit 50 %.",logs:[],photo:"",hasPhoto:false});
+  persist();
 }
 const TARGET_EIGHT_MIGRATION="fitnessbegleiter_target8_v1";
 function migrateTargetEight(){
@@ -677,6 +685,7 @@ function muscleInfo(d){
     [/^chest press vertical$/,()=>{subtitle="Brustpresse · Brust";M("chest","Brustmuskulatur");S("frontdelts","vordere Schulter");S("triceps","Trizeps");}],
     [/^(?:fulldown|pulldown) machine$/,()=>{subtitle="Zugbewegung · Latissimus";M("lats","Latissimus");S("upperback","oberer / mittlerer Rücken");S("biceps","Bizeps");}],
     [/^roman chair$/,()=>{subtitle="Rückenstrecker · unterer Rücken";M("lowerback","Rückenstrecker");S("glutes","Gesäß");S("hamstrings","Beinbeuger");}],
+    [/^(?:low[ -]?row(?:[ -]?(?:maschine|rudern))?|tiefes rudern)(?:\s*\(.*\))?$/,()=>{subtitle="Low Row · Latissimus & mittlerer Rücken";M("lats","Latissimus (breiter Rückenmuskel)");M("midback","Rautenmuskeln und mittlerer Trapezmuskel");S("reardelts","Hintere Schulter");S("biceps","Bizeps");S("brachialis","Brachialis");}],
     [/^t-bar-row$/,()=>{subtitle="Rudern · mittlerer Rücken";M("midback","mittlerer Rücken");S("lats","Latissimus");S("reardelts","hintere Schulter");S("biceps","Bizeps");}],
     [/^legs extensions$/,()=>{subtitle="Beinstrecker · Quadrizeps";M("quads","Quadrizeps");}],
     [/^hip adduktion(?: \/ nach innen)?$/,()=>{subtitle="Adduktion · Oberschenkel innen";M("adductors","Adduktoren");}],
@@ -756,6 +765,10 @@ function muscleSvgLegacy(info){
 function muscleSvg(info,d){
   const n=((d&&d.name)||"").trim().toLowerCase();
   const files={
+    "low row":"low-row.png",
+    "low-row":"low-row.png",
+    "low row maschine":"low-row.png",
+    "tiefes rudern":"low-row.png",
     "beinpresse":"beinpresse.png",
     "leg press":"beinpresse.png",
     "hack squat":"hack-squat.png",
@@ -794,7 +807,7 @@ function muscleSvg(info,d){
     "cable rotation":"cable-rotation.png",
     "hip adduktion":"hip-adduktion.png"
   };
-  const file=files[n] || (/beinpresse|leg[ -]?press/i.test(n) ? "beinpresse.png" : /hack[ -]?squat|hackenschmidt/i.test(n) ? "hack-squat.png" : /klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
+  const file=files[n] || (/low[ -]?row|tiefes rudern/i.test(n) ? "low-row.png" : /beinpresse|leg[ -]?press/i.test(n) ? "beinpresse.png" : /hack[ -]?squat|hackenschmidt/i.test(n) ? "hack-squat.png" : /klimm|pull[ -]?up/i.test(n) ? "klimmzuege.png" : null);
   if(!file) return `<div class="muscleAtlasFallback">${muscleSvgLegacy(info)}</div>`;
   return `<div class="singleMuscleCard">
     <img class="singleMuscleImage" src="assets/muscles/${file}" alt="Trainierte Muskeln – ${esc((d&&d.name)||"Gerät")}">
@@ -808,12 +821,13 @@ function openMuscles(id,from="detail"){
   $("muscleTitle").textContent=`Trainierte Muskeln – ${d.name}`;
   $("muscleTitle").insertAdjacentHTML("beforeend",`<small class="muscleSubtitle">${info.subtitle}</small>`);
   const isLegPress=/beinpresse|leg[ -]?press/i.test(d.name||"");
+  const lowRowInfo=/low[ -]?row|tiefes rudern/i.test(d.name||"")?`<div class="muscleInfo"><b>Low Row – Ausführung</b><ol><li>Sitz so einstellen, dass das Brustpolster den Oberkörper stabil stützt. Füße fest abstellen und Griffe greifen.</li><li>Schultern tief halten und die Griffe kontrolliert Richtung Rumpf ziehen; Ellenbogen nah am Körper führen.</li><li>Schulterblätter am Ende sanft zusammenführen und die Spannung kurz halten.</li><li>Arme langsam wieder nach vorn führen, ohne den Oberkörper vom Polster zu lösen.</li></ol><b>Techniktipps</b><div>Brust am Polster lassen, nicht mit dem Rücken schwingen. Beide Hebelarme gleichmäßig bewegen; Handgelenke möglichst neutral halten.</div><br><b>Belastung</b><div>Aufwärmsatz mit 50 % des Arbeitsgewichts; anschließend drei Arbeitssätze mit 8–12 Wiederholungen. Das tatsächliche Arbeitsgewicht am Gerät ermitteln; 20 kg sind nur ein editierbarer Startwert.</div></div>`:"";
   const legPressInfo=isLegPress?`<div class="muscleInfo"><b>Beinpresse – Ausführung</b><ol><li>Sitz und Rückenlehne einstellen; Rücken und Becken bleiben an der Lehne.</li><li>Füße etwa schulterbreit auf die Plattform stellen, Knie in Richtung der Zehen ausrichten.</li><li>Gewicht kontrolliert absenken, nur so tief wie das Becken stabil bleibt.</li><li>Plattform gleichmäßig wegdrücken, Knie oben nicht ruckartig durchstrecken.</li></ol><b>Techniktipps</b><div>Fersen auf der Plattform lassen, Knie nicht nach innen fallen lassen und keinen Schwung nutzen. Bewegungstiefe an Gerät und Beweglichkeit anpassen.</div><br><b>Belastung</b><div>Aufwärmsatz mit 50 % des eingetragenen Arbeitsgewichts; danach drei Arbeitssätze. Weitere Arbeitssätze sind bei Bedarf hinzufügbar.</div></div>`:"";
   $("muscleBody").innerHTML=`<div class="muscleStage">${muscleSvg(info,d)}
       <div class="muscleColorKey"><span><i class="keyMain"></i> Hauptmuskel</span><span><i class="keySec"></i> unterstützend</span></div>
     </div>
     <div class="muscleInfo"><b>Hauptmuskel</b><div>${info.main.map(x=>x.label).join("<br>")}</div>
-    ${info.secondary.length?`<br><b class="secondaryMuscle">Unterstützende Muskeln</b><div>${info.secondary.map(x=>x.label).join("<br>")}</div>`:""}</div>${legPressInfo}`;
+    ${info.secondary.length?`<br><b class="secondaryMuscle">Unterstützende Muskeln</b><div>${info.secondary.map(x=>x.label).join("<br>")}</div>`:""}</div>${legPressInfo}${lowRowInfo}`;
   $("muscleView").style.display="block";
   document.body.style.overflow="hidden";
 }
